@@ -38,6 +38,12 @@ const supabaseAdmin = createClient(
  */
 async function testConnection() {
   try {
+    // Em desenvolvimento, permitir funcionamento sem Supabase real
+    if (environment.isDevelopment() && process.env.SKIP_DB_CONNECTION === 'true') {
+      logger.warn('⚠️ Modo desenvolvimento: Pulando verificação de conexão com Supabase');
+      return true;
+    }
+
     const { data, error } = await supabaseClient
       .from('contacts')
       .select('count')
@@ -45,6 +51,12 @@ async function testConnection() {
     
     if (error) {
       logger.error('Erro ao testar conexão com Supabase:', error);
+      
+      // Em desenvolvimento, permitir continuar mesmo com erro de conexão
+      if (environment.isDevelopment()) {
+        logger.warn('⚠️ Modo desenvolvimento: Continuando sem conexão com Supabase');
+        return true;
+      }
       return false;
     }
     
@@ -52,6 +64,12 @@ async function testConnection() {
     return true;
   } catch (error) {
     logger.error('Erro ao conectar com Supabase:', error);
+    
+    // Em desenvolvimento, permitir continuar mesmo com erro de conexão
+    if (environment.isDevelopment()) {
+      logger.warn('⚠️ Modo desenvolvimento: Continuando sem conexão com Supabase');
+      return true;
+    }
     return false;
   }
 }
