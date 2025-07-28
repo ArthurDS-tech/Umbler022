@@ -18,6 +18,8 @@ const contactRoutes = require('./routes/contacts');
 const messageRoutes = require('./routes/messages');
 const conversationRoutes = require('./routes/conversations');
 const apiRoutes = require('./routes/api');
+require('dotenv').config();
+
 
 // Criar aplicação Express
 const app = express();
