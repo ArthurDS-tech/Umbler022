@@ -3,18 +3,21 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 require('express-async-errors');
 require('dotenv').config();
 
 const { environment } = require('./config/environment');
 const logger = require('./utils/logger');
 const { globalErrorHandler } = require('./middleware/errorHandler');
+const tunnelManager = require('./utils/tunnel');
 
 // Importar rotas
 const webhookRoutes = require('./routes/webhook');
 const contactRoutes = require('./routes/contacts');
 const messageRoutes = require('./routes/messages');
 const conversationRoutes = require('./routes/conversations');
+const apiRoutes = require('./routes/api');
 
 // Criar aplicação Express
 const app = express();
@@ -50,6 +53,9 @@ app.use(cors({
 
 // Compressão de responses
 app.use(compression());
+
+// Servir arquivos estáticos
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Rate limiting global
 const globalLimiter = rateLimit({
@@ -181,6 +187,7 @@ app.use('/webhook', webhookRoutes);
 app.use('/api/contacts', contactRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/conversations', conversationRoutes);
+app.use('/api', apiRoutes);
 
 // =============================================
 // ROTA RAIZ
@@ -254,11 +261,28 @@ const PORT = environment.port;
 const HOST = environment.host;
 
 if (require.main === module) {
-  app.listen(PORT, HOST, () => {
+  app.listen(PORT, HOST, async () => {
     logger.info(`🚀 Servidor iniciado em http://${HOST}:${PORT}`);
     logger.info(`📝 Ambiente: ${environment.nodeEnv}`);
     logger.info(`🔗 Webhook URL: http://${HOST}:${PORT}/webhook/umbler`);
     logger.info(`❤️ Health Check: http://${HOST}:${PORT}/health`);
+    
+    // Iniciar túnel público em desenvolvimento
+    if (environment.isDevelopment()) {
+      try {
+        await tunnelManager.autoStart();
+        
+        // Se o túnel foi iniciado, mostrar a URL pública
+        if (tunnelManager.isActive()) {
+          const tunnelInfo = tunnelManager.getTunnelInfo();
+          logger.info(`🌐 Túnel público ativo: ${tunnelInfo.tunnelUrl}`);
+          logger.info(`🔗 Webhook público: ${tunnelInfo.webhookUrl}`);
+          logger.info(`💻 Frontend: ${tunnelInfo.tunnelUrl}`);
+        }
+      } catch (error) {
+        logger.warn('⚠️ Não foi possível iniciar túnel público:', error.message);
+      }
+    }
   });
 }
 
