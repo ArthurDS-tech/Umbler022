@@ -116,6 +116,31 @@ const createMessageSchema = Joi.object({
   metadata: Joi.object().optional()
 });
 
+// Schema para atualizar mensagem
+const updateMessageSchema = Joi.object({
+  content: Joi.string().allow('').optional(),
+  isRead: Joi.boolean().optional(),
+  metadata: Joi.object().optional()
+}).min(1);
+
+// Schema para criar conversa
+const createConversationSchema = Joi.object({
+  contactId: Joi.string().uuid().required(),
+  status: Joi.string().valid('open', 'closed', 'pending', 'resolved').default('open'),
+  channel: Joi.string().valid('whatsapp', 'telegram', 'email', 'chat').default('whatsapp'),
+  assignedAgentId: Joi.string().uuid().allow(null).optional(),
+  priority: Joi.string().valid('low', 'normal', 'high', 'urgent').default('normal'),
+  metadata: Joi.object().optional()
+});
+
+// Schema para atualizar conversa
+const updateConversationSchema = Joi.object({
+  status: Joi.string().valid('open', 'closed', 'pending', 'resolved').optional(),
+  assignedAgentId: Joi.string().uuid().allow(null).optional(),
+  priority: Joi.string().valid('low', 'normal', 'high', 'urgent').optional(),
+  metadata: Joi.object().optional()
+}).min(1);
+
 // Schema para filtros de paginação
 const paginationSchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
@@ -246,6 +271,81 @@ const validateCreateMessage = (req, res, next) => {
       success: false,
       error: 'Dados inválidos para criar mensagem',
       code: 'INVALID_MESSAGE_DATA',
+      details: error.details.map(detail => ({
+        field: detail.path.join('.'),
+        message: detail.message
+      }))
+    });
+  }
+  
+  req.validatedBody = value;
+  next();
+};
+
+/**
+ * Validar dados de atualização de mensagem
+ */
+const validateUpdateMessage = (req, res, next) => {
+  const { error, value } = updateMessageSchema.validate(req.body, {
+    stripUnknown: true,
+    convert: true
+  });
+  
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      error: 'Dados inválidos para atualizar mensagem',
+      code: 'INVALID_UPDATE_MESSAGE_DATA',
+      details: error.details.map(detail => ({
+        field: detail.path.join('.'),
+        message: detail.message
+      }))
+    });
+  }
+  
+  req.validatedBody = value;
+  next();
+};
+
+/**
+ * Validar dados de criação de conversa
+ */
+const validateCreateConversation = (req, res, next) => {
+  const { error, value } = createConversationSchema.validate(req.body, {
+    stripUnknown: true,
+    convert: true
+  });
+  
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      error: 'Dados inválidos para criar conversa',
+      code: 'INVALID_CONVERSATION_DATA',
+      details: error.details.map(detail => ({
+        field: detail.path.join('.'),
+        message: detail.message
+      }))
+    });
+  }
+  
+  req.validatedBody = value;
+  next();
+};
+
+/**
+ * Validar dados de atualização de conversa
+ */
+const validateUpdateConversation = (req, res, next) => {
+  const { error, value } = updateConversationSchema.validate(req.body, {
+    stripUnknown: true,
+    convert: true
+  });
+  
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      error: 'Dados inválidos para atualizar conversa',
+      code: 'INVALID_UPDATE_CONVERSATION_DATA',
       details: error.details.map(detail => ({
         field: detail.path.join('.'),
         message: detail.message
@@ -673,6 +773,9 @@ module.exports = {
   validateCreateContact,
   validateUpdateContact,
   validateCreateMessage,
+  validateUpdateMessage,
+  validateCreateConversation,
+  validateUpdateConversation,
   validatePagination,
   validateDateFilters,
   validateUuidParam,
@@ -694,6 +797,9 @@ module.exports = {
   createContactSchema,
   updateContactSchema,
   createMessageSchema,
+  updateMessageSchema,
+  createConversationSchema,
+  updateConversationSchema,
   paginationSchema,
   dateFilterSchema,
   statsSchema,

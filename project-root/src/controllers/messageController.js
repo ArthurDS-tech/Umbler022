@@ -2,11 +2,6 @@ const messageService = require('../services/messageService');
 const logger = require('../utils/logger');
 const { validatePagination } = require('../utils/helpers');
 
-
-
-const { updateMessage } = require('../controllers/messageController');
-router.put('/:id', asyncErrorHandler(updateMessage));
-
 /**
  * Controller responsável por gerenciar mensagens
  */

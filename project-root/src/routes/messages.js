@@ -48,16 +48,10 @@ const modifyLimiter = rateLimit({
  * @query {string} date_from - Data inicial (YYYY-MM-DD)
  * @query {string} date_to - Data final (YYYY-MM-DD)
  */
-
-class MessageController {
-  async updateMessage(req, res) {
-    // lógica aqui
-  }
-
-  // outros métodos...
-}
-
-module.exports = new MessageController();
+router.get('/',
+  messagesLimiter,
+  asyncErrorHandler(messageController.getAllMessages)
+);
 
 /**
  * @route GET /api/messages/stats

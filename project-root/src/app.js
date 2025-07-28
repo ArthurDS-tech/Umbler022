@@ -8,7 +8,7 @@ require('dotenv').config();
 
 const { environment } = require('./config/environment');
 const logger = require('./utils/logger');
-const errorHandler = require('./middleware/errorHandler');
+const { globalErrorHandler } = require('./middleware/errorHandler');
 
 // Importar rotas
 const webhookRoutes = require('./routes/webhook');
@@ -219,7 +219,7 @@ app.use((req, res) => {
 // MIDDLEWARE DE TRATAMENTO DE ERROS
 // =============================================
 
-app.use(errorHandler);
+app.use(globalErrorHandler);
 
 // =============================================
 // TRATAMENTO DE ERROS NÃO CAPTURADOS
