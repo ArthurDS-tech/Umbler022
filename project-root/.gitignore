@@ -1,0 +1,289 @@
+# =============================================
+# ARQUIVOS DE CONFIGURAÇÃO E SEGURANÇA
+# =============================================
+
+# Variáveis de ambiente
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Configurações locais
+config/local.js
+config/development.local.js
+config/production.local.js
+
+# =============================================
+# NODE.JS E NPM
+# =============================================
+
+# Dependências
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Cache do npm
+.npm
+
+# Cache do Yarn
+.yarn-integrity
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# Arquivos de lock opcionais
+package-lock.json
+yarn.lock
+
+# =============================================
+# LOGS E DADOS TEMPORÁRIOS
+# =============================================
+
+# Logs da aplicação
+logs/
+*.log
+logs/*.log
+
+# Arquivos temporários
+tmp/
+temp/
+.tmp/
+
+# Crash dumps
+*.dmp
+
+# =============================================
+# EDITORES E IDEs
+# =============================================
+
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# IntelliJ IDEA / WebStorm
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# =============================================
+# SISTEMAS OPERACIONAIS
+# =============================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# =============================================
+# DADOS E UPLOADS
+# =============================================
+
+# Uploads de usuários
+uploads/
+public/uploads/
+static/uploads/
+
+# Dados de teste
+test-data/
+mock-data/
+
+# Backups
+backups/
+*.backup
+*.bak
+
+# =============================================
+# BANCOS DE DADOS LOCAIS
+# =============================================
+
+# SQLite
+*.sqlite
+*.sqlite3
+*.db
+
+# MongoDB
+data/db/
+
+# =============================================
+# FERRAMENTAS DE DESENVOLVIMENTO
+# =============================================
+
+# Coverage reports
+coverage/
+*.lcov
+.nyc_output
+
+# Instrumentação de código
+lib-cov
+.grunt
+
+# Diretório de build
+build/
+dist/
+out/
+
+# Cache do Webpack
+.cache/
+
+# Cache do Parcel
+.parcel-cache/
+
+# Cache do Next.js
+.next/
+
+# Cache do Nuxt.js
+.nuxt/
+
+# =============================================
+# CONTAINERIZAÇÃO
+# =============================================
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# =============================================
+# MONITORAMENTO E DEBUGGING
+# =============================================
+
+# New Relic
+newrelic_agent.log
+
+# Sentry
+.sentryclirc
+
+# =============================================
+# TESTES
+# =============================================
+
+# Jest
+jest.config.local.js
+
+# Cypress
+cypress/videos/
+cypress/screenshots/
+
+# =============================================
+# DOCUMENTAÇÃO GERADA
+# =============================================
+
+# JSDoc
+docs/generated/
+
+# =============================================
+# ARQUIVOS ESPECÍFICOS DO PROJETO
+# =============================================
+
+# Arquivos de configuração específicos
+config/database.local.js
+config/redis.local.js
+
+# Certificados SSL locais
+certs/
+ssl/
+*.pem
+*.key
+*.crt
+
+# Arquivos de processo
+*.pid
+
+# Arquivos de sesssão
+sessions/
+
+# =============================================
+# UTILITÁRIOS E FERRAMENTAS
+# =============================================
+
+# ESLint cache
+.eslintcache
+
+# Prettier cache
+.prettiercache
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Rush
+.rush/
+
+# =============================================
+# ESPECÍFICO WEBHOOK UMBLER
+# =============================================
+
+# Logs específicos da aplicação
+webhook-logs/
+umbler-logs/
+
+# Dados de teste do webhook
+test-webhooks/
+mock-webhooks/
+
+# Configurações locais do Supabase
+supabase/.env
+supabase/config.local.toml
