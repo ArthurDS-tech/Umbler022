@@ -37,34 +37,40 @@ class WebhookService {
         processed: true
       };
       
-      switch (eventType) {
-        case 'message.received':
-        case 'message.sent':
-          logger.info('💬 Processando evento de mensagem');
-          result = await this._processMessageEvent(payload);
-          break;
-          
-        case 'conversation.created':
-        case 'conversation.updated':
-        case 'conversation.closed':
-          logger.info('💭 Processando evento de conversa');
-          result = await this._processConversationEvent(payload);
-          break;
-          
-        case 'contact.created':
-        case 'contact.updated':
-          logger.info('👤 Processando evento de contato');
-          result = await this._processContactEvent(payload);
-          break;
-          
-        case 'message.status':
-          logger.info('📊 Processando evento de status de mensagem');
-          result = await this._processMessageStatusEvent(payload);
-          break;
-          
-        default:
-          logger.warn('⚠️ Tipo de evento não reconhecido', { eventType, payload });
-          result = await this._processUnknownEvent(payload);
+      try {
+        switch (eventType) {
+          case 'message.received':
+          case 'message.sent':
+            logger.info('💬 Processando evento de mensagem');
+            result = await this._processMessageEvent(payload);
+            break;
+            
+          case 'conversation.created':
+          case 'conversation.updated':
+          case 'conversation.closed':
+            logger.info('💭 Processando evento de conversa');
+            result = await this._processConversationEvent(payload);
+            break;
+            
+          case 'contact.created':
+          case 'contact.updated':
+            logger.info('👤 Processando evento de contato');
+            result = await this._processContactEvent(payload);
+            break;
+            
+          case 'message.status':
+            logger.info('📊 Processando evento de status de mensagem');
+            result = await this._processMessageStatusEvent(payload);
+            break;
+            
+          default:
+            logger.warn('⚠️ Tipo de evento não reconhecido, tentando processar como mensagem', { eventType });
+            result = await this._processMessageEvent(payload);
+        }
+      } catch (processError) {
+        logger.error('❌ Erro no processamento específico:', processError);
+        // Tentar processar como evento desconhecido
+        result = await this._processUnknownEvent(payload);
       }
       
       result.eventType = eventType;
@@ -98,7 +104,7 @@ class WebhookService {
         try {
           contactResult = await contactService.createOrUpdateContact({
             phone: contact.phone,
-            name: contact.name,
+            name: contact.name || 'Contato',
             email: contact.email,
             profilePicUrl: contact.profile_pic,
             metadata: {
@@ -152,7 +158,7 @@ class WebhookService {
             umblerMessageId: message.id,
             direction: message.direction || (payload.event === 'message.received' ? 'inbound' : 'outbound'),
             messageType: message.type || 'text',
-            content: message.content || message.text,
+            content: message.content || message.text || '',
             mediaUrl: message.media_url,
             mediaFilename: message.media_filename,
             mediaMimeType: message.media_mime_type,
@@ -320,6 +326,11 @@ class WebhookService {
       
       if (error) {
         logger.error('❌ Erro ao registrar evento de webhook:', error);
+        // Em desenvolvimento, não propagar erro
+        if (process.env.NODE_ENV === 'development') {
+          logger.warn('⚠️ Modo desenvolvimento: Continuando sem salvar evento de webhook');
+          return null;
+        }
         throw error;
       }
       
@@ -539,6 +550,18 @@ class WebhookService {
       throw new Error('Payload inválido: deve ser um objeto');
     }
     
+    // Log do payload para debug
+    logger.info('📋 Payload recebido:', {
+      event: payload.event,
+      hasMessage: !!payload.message,
+      hasContact: !!payload.contact,
+      hasConversation: !!payload.conversation,
+      messageId: payload.message?.id,
+      contactPhone: payload.contact?.phone,
+      conversationId: payload.conversation?.id,
+      payloadKeys: Object.keys(payload)
+    });
+    
     // Verificar se há pelo menos um campo esperado
     const expectedFields = ['message', 'contact', 'conversation', 'event'];
     const hasExpectedField = expectedFields.some(field => payload[field]);
@@ -548,18 +571,8 @@ class WebhookService {
         payloadKeys: Object.keys(payload),
         expectedFields
       });
+      // Não lançar erro, apenas logar warning
     }
-    
-    // Log do payload para debug
-    logger.debug('📋 Payload recebido:', {
-      event: payload.event,
-      hasMessage: !!payload.message,
-      hasContact: !!payload.contact,
-      hasConversation: !!payload.conversation,
-      messageId: payload.message?.id,
-      contactPhone: payload.contact?.phone,
-      conversationId: payload.conversation?.id
-    });
     
     return true;
   }
@@ -568,7 +581,7 @@ class WebhookService {
    * Inferir tipo de evento baseado na estrutura do payload
    */
   _inferEventType(payload) {
-    logger.debug('🔍 Inferindo tipo de evento', {
+    logger.info('🔍 Inferindo tipo de evento', {
       hasMessage: !!payload.message,
       hasContact: !!payload.contact,
       hasConversation: !!payload.conversation,
@@ -608,7 +621,7 @@ class WebhookService {
     }
     
     logger.warn('⚠️ Não foi possível inferir tipo de evento', { payload });
-    return 'unknown';
+    return 'message.received'; // Padrão mais comum
   }
 }
 
