@@ -17,7 +17,8 @@ class WebhookService {
     try {
       logger.info('🔄 Iniciando processamento do webhook', { 
         eventType: payload.event,
-        webhookEventId 
+        webhookEventId,
+        payloadKeys: Object.keys(payload)
       });
       
       // Validar estrutura básica do payload
@@ -25,6 +26,8 @@ class WebhookService {
       
       // Determinar tipo de evento e processar
       const eventType = payload.event || this._inferEventType(payload);
+      
+      logger.info('📋 Tipo de evento determinado', { eventType });
       
       let result = {
         eventType,
@@ -37,26 +40,30 @@ class WebhookService {
       switch (eventType) {
         case 'message.received':
         case 'message.sent':
+          logger.info('💬 Processando evento de mensagem');
           result = await this._processMessageEvent(payload);
           break;
           
         case 'conversation.created':
         case 'conversation.updated':
         case 'conversation.closed':
+          logger.info('💭 Processando evento de conversa');
           result = await this._processConversationEvent(payload);
           break;
           
         case 'contact.created':
         case 'contact.updated':
+          logger.info('👤 Processando evento de contato');
           result = await this._processContactEvent(payload);
           break;
           
         case 'message.status':
+          logger.info('📊 Processando evento de status de mensagem');
           result = await this._processMessageStatusEvent(payload);
           break;
           
         default:
-          logger.warn('Tipo de evento não reconhecido', { eventType, payload });
+          logger.warn('⚠️ Tipo de evento não reconhecido', { eventType, payload });
           result = await this._processUnknownEvent(payload);
       }
       
@@ -67,6 +74,7 @@ class WebhookService {
       
     } catch (error) {
       logger.error('❌ Erro no processamento do webhook:', error);
+      logger.error('❌ Stack trace:', error.stack);
       throw error;
     }
   }
@@ -75,58 +83,109 @@ class WebhookService {
    * Processar evento de mensagem
    */
   async _processMessageEvent(payload) {
-    const { message, contact, conversation } = payload;
-    
-    // 1. Processar/criar contato
-    const contactResult = await contactService.createOrUpdateContact({
-      phone: contact.phone,
-      name: contact.name,
-      email: contact.email,
-      profilePicUrl: contact.profile_pic,
-      metadata: {
-        source: 'umbler_webhook',
-        lastWebhookUpdate: new Date().toISOString()
+    try {
+      const { message, contact, conversation } = payload;
+      
+      logger.info('🔄 Processando evento de mensagem', {
+        messageId: message?.id,
+        contactPhone: contact?.phone,
+        conversationId: conversation?.id
+      });
+      
+      // 1. Processar/criar contato
+      let contactResult = null;
+      if (contact && contact.phone) {
+        try {
+          contactResult = await contactService.createOrUpdateContact({
+            phone: contact.phone,
+            name: contact.name,
+            email: contact.email,
+            profilePicUrl: contact.profile_pic,
+            metadata: {
+              source: 'umbler_webhook',
+              lastWebhookUpdate: new Date().toISOString()
+            }
+          });
+          
+          logger.info('✅ Contato processado', { contactId: contactResult.id });
+        } catch (contactError) {
+          logger.error('❌ Erro ao processar contato:', contactError);
+          throw new Error(`Falha ao processar contato: ${contactError.message}`);
+        }
+      } else {
+        logger.warn('⚠️ Dados do contato não fornecidos no webhook');
+        throw new Error('Dados do contato são obrigatórios para processar mensagem');
       }
-    });
-    
-    // 2. Processar/criar conversa
-    const conversationResult = await conversationService.createOrUpdateConversation({
-      contactId: contactResult.id,
-      umblerConversationId: conversation?.id,
-      channel: 'whatsapp',
-      status: conversation?.status || 'open',
-      metadata: {
-        source: 'umbler_webhook',
-        lastWebhookUpdate: new Date().toISOString()
+      
+      // 2. Processar/criar conversa
+      let conversationResult = null;
+      if (conversation && conversation.id) {
+        try {
+          conversationResult = await conversationService.createOrUpdateConversation({
+            contactId: contactResult.id,
+            umblerConversationId: conversation.id,
+            channel: 'whatsapp',
+            status: conversation.status || 'open',
+            metadata: {
+              source: 'umbler_webhook',
+              lastWebhookUpdate: new Date().toISOString()
+            }
+          });
+          
+          logger.info('✅ Conversa processada', { conversationId: conversationResult.id });
+        } catch (conversationError) {
+          logger.error('❌ Erro ao processar conversa:', conversationError);
+          throw new Error(`Falha ao processar conversa: ${conversationError.message}`);
+        }
+      } else {
+        logger.warn('⚠️ Dados da conversa não fornecidos no webhook');
+        throw new Error('Dados da conversa são obrigatórios para processar mensagem');
       }
-    });
-    
-    // 3. Processar mensagem
-    const messageResult = await messageService.createMessage({
-      conversationId: conversationResult.id,
-      contactId: contactResult.id,
-      umblerMessageId: message.id,
-      direction: message.direction || (payload.event === 'message.received' ? 'inbound' : 'outbound'),
-      messageType: message.type || 'text',
-      content: message.content || message.text,
-      mediaUrl: message.media_url,
-      mediaFilename: message.media_filename,
-      mediaMimeType: message.media_mime_type,
-      mediaSize: message.media_size,
-      status: 'received',
-      rawWebhookData: payload,
-      metadata: {
-        source: 'umbler_webhook',
-        timestamp: message.timestamp
+      
+      // 3. Processar mensagem
+      let messageResult = null;
+      if (message && message.id) {
+        try {
+          messageResult = await messageService.createMessage({
+            conversationId: conversationResult.id,
+            contactId: contactResult.id,
+            umblerMessageId: message.id,
+            direction: message.direction || (payload.event === 'message.received' ? 'inbound' : 'outbound'),
+            messageType: message.type || 'text',
+            content: message.content || message.text,
+            mediaUrl: message.media_url,
+            mediaFilename: message.media_filename,
+            mediaMimeType: message.media_mime_type,
+            mediaSize: message.media_size,
+            status: 'received',
+            rawWebhookData: payload,
+            metadata: {
+              source: 'umbler_webhook',
+              timestamp: message.timestamp
+            }
+          });
+          
+          logger.info('✅ Mensagem processada', { messageId: messageResult.id });
+        } catch (messageError) {
+          logger.error('❌ Erro ao processar mensagem:', messageError);
+          throw new Error(`Falha ao processar mensagem: ${messageError.message}`);
+        }
+      } else {
+        logger.warn('⚠️ Dados da mensagem não fornecidos no webhook');
+        throw new Error('Dados da mensagem são obrigatórios');
       }
-    });
-    
-    return {
-      contactId: contactResult.id,
-      conversationId: conversationResult.id,
-      messageId: messageResult.id,
-      processed: true
-    };
+      
+      return {
+        contactId: contactResult.id,
+        conversationId: conversationResult.id,
+        messageId: messageResult.id,
+        processed: true
+      };
+      
+    } catch (error) {
+      logger.error('❌ Erro no processamento do evento de mensagem:', error);
+      throw error;
+    }
   }
   
   /**
@@ -238,30 +297,43 @@ class WebhookService {
    */
   async logWebhookEvent(eventData) {
     try {
+      logger.info('📝 Registrando evento de webhook', {
+        eventType: eventData.eventType,
+        sourceIp: eventData.sourceIp
+      });
+      
+      const eventToInsert = {
+        id: uuidv4(),
+        event_type: eventData.eventType,
+        event_data: eventData.eventData,
+        processed: eventData.processed || false,
+        source_ip: eventData.sourceIp,
+        user_agent: eventData.userAgent,
+        created_at: new Date().toISOString()
+      };
+      
       const { data, error } = await supabaseAdmin
         .from('webhook_events')
-        .insert({
-          id: uuidv4(),
-          event_type: eventData.eventType,
-          event_data: eventData.eventData,
-          processed: eventData.processed || false,
-          source_ip: eventData.sourceIp,
-          user_agent: eventData.userAgent,
-          created_at: new Date().toISOString()
-        })
+        .insert(eventToInsert)
         .select()
         .single();
       
       if (error) {
-        logger.error('Erro ao registrar evento de webhook:', error);
+        logger.error('❌ Erro ao registrar evento de webhook:', error);
         throw error;
       }
       
+      logger.info('✅ Evento de webhook registrado', { eventId: data.id });
       return data.id;
     } catch (error) {
-      logger.error('Falha ao salvar evento de webhook:', error);
-      // Não propagar erro para não interromper o processamento
-      return null;
+      logger.error('❌ Falha ao salvar evento de webhook:', error);
+      // Em desenvolvimento, permitir continuar sem salvar o evento
+      if (process.env.NODE_ENV === 'development') {
+        logger.warn('⚠️ Modo desenvolvimento: Continuando sem salvar evento de webhook');
+        return null;
+      }
+      // Em produção, propagar o erro
+      throw error;
     }
   }
   
@@ -467,7 +539,28 @@ class WebhookService {
       throw new Error('Payload inválido: deve ser um objeto');
     }
     
-    // Validações específicas podem ser adicionadas aqui
+    // Verificar se há pelo menos um campo esperado
+    const expectedFields = ['message', 'contact', 'conversation', 'event'];
+    const hasExpectedField = expectedFields.some(field => payload[field]);
+    
+    if (!hasExpectedField) {
+      logger.warn('⚠️ Payload não contém campos esperados', {
+        payloadKeys: Object.keys(payload),
+        expectedFields
+      });
+    }
+    
+    // Log do payload para debug
+    logger.debug('📋 Payload recebido:', {
+      event: payload.event,
+      hasMessage: !!payload.message,
+      hasContact: !!payload.contact,
+      hasConversation: !!payload.conversation,
+      messageId: payload.message?.id,
+      contactPhone: payload.contact?.phone,
+      conversationId: payload.conversation?.id
+    });
+    
     return true;
   }
   
@@ -475,18 +568,46 @@ class WebhookService {
    * Inferir tipo de evento baseado na estrutura do payload
    */
   _inferEventType(payload) {
+    logger.debug('🔍 Inferindo tipo de evento', {
+      hasMessage: !!payload.message,
+      hasContact: !!payload.contact,
+      hasConversation: !!payload.conversation,
+      event: payload.event
+    });
+    
+    // Se já tem um evento definido, usar ele
+    if (payload.event) {
+      return payload.event;
+    }
+    
+    // Inferir baseado na estrutura
     if (payload.message && payload.contact) {
-      return 'message.received';
+      // Se tem mensagem e contato, provavelmente é um evento de mensagem
+      const direction = payload.message.direction;
+      if (direction === 'inbound' || payload.message.type === 'received') {
+        return 'message.received';
+      } else if (direction === 'outbound' || payload.message.type === 'sent') {
+        return 'message.sent';
+      }
+      return 'message.received'; // Padrão
     }
     
     if (payload.conversation) {
-      return 'conversation.updated';
+      // Se tem conversa, verificar o status
+      const status = payload.conversation.status;
+      if (status === 'closed' || status === 'resolved') {
+        return 'conversation.closed';
+      } else if (status === 'open') {
+        return 'conversation.updated';
+      }
+      return 'conversation.updated'; // Padrão
     }
     
     if (payload.contact) {
       return 'contact.updated';
     }
     
+    logger.warn('⚠️ Não foi possível inferir tipo de evento', { payload });
     return 'unknown';
   }
 }

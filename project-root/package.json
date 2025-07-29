@@ -3,11 +3,11 @@
     "version": "1.0.0",
     "description": "Backend completo para webhook da Umbler integrado com Supabase",
     "main": "src/app.js",
-        "scripts": {
-      "start": "node src/app.js",
-      "dev": "nodemon src/app.js",
-      "dev:tunnel": "AUTO_START_TUNNEL=true nodemon src/app.js",
-      "test": "jest",
+    "scripts": {
+        "start": "node src/app.js",
+        "dev": "nodemon src/app.js",
+        "dev:tunnel": "AUTO_START_TUNNEL=true nodemon src/app.js",
+        "test": "jest",
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage",
         "setup": "node scripts/setup-database.js",
@@ -37,7 +37,7 @@
     "license": "MIT",
     "dependencies": {
         "@supabase/supabase-js": "^2.38.5",
-        "axios": "^1.6.2",
+        "axios": "^1.11.0",
         "bcryptjs": "^2.4.3",
         "compression": "^1.7.4",
         "cors": "^2.8.5",
