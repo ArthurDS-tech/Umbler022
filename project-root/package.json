@@ -14,6 +14,8 @@
         "setup:quick": "node scripts/setup-quick.js",
         "migrate": "node scripts/migrate.js",
         "seed": "node scripts/seed.js",
+        "test:connection": "node scripts/test-connection.js",
+        "configure": "node scripts/configure-supabase.js",
         "lint": "eslint src/ --fix",
         "format": "prettier --write src/",
         "build": "echo 'No build step required for Node.js'",

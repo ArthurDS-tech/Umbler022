@@ -3,530 +3,238 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Umbler Webhook Tester</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-        }
-
-        .header p {
-            font-size: 1.1rem;
-            opacity: 0.9;
-        }
-
-        .main-content {
-            padding: 40px;
-        }
-
-        .section {
-            margin-bottom: 40px;
-            padding: 30px;
-            border-radius: 10px;
-            border: 2px solid #f0f0f0;
-        }
-
-        .section h2 {
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 1.5rem;
-            border-bottom: 3px solid #667eea;
-            padding-bottom: 10px;
-        }
-
-        .webhook-info {
-            background: #f8f9ff;
-        }
-
-        .test-section {
-            background: #fff8f0;
-        }
-
-        .logs-section {
-            background: #f0fff8;
-        }
-
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin: 20px 0;
-        }
-
-        .info-card {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        .info-card h3 {
-            color: #1e3c72;
-            margin-bottom: 10px;
-        }
-
-        .info-card p {
-            color: #666;
-            line-height: 1.6;
-        }
-
-        .url-display {
-            background: #2d3748;
-            color: #68d391;
-            padding: 15px;
-            border-radius: 8px;
-            font-family: 'Courier New', monospace;
-            font-size: 1.1rem;
-            word-break: break-all;
-            margin: 15px 0;
-        }
-
-        .btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 12px 25px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1rem;
-            transition: transform 0.2s;
-            margin: 5px;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
-
-        .btn-success {
-            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
-        }
-
-        .btn-danger {
-            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #333;
-        }
-
-        .form-group input,
-        .form-group textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.3s;
-        }
-
-        .form-group input:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .logs {
-            background: #1a202c;
-            color: #68d391;
-            padding: 20px;
-            border-radius: 8px;
-            font-family: 'Courier New', monospace;
-            max-height: 400px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            font-size: 0.9rem;
-        }
-
-        .status {
-            display: inline-block;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            margin: 10px 0;
-        }
-
-        .status.online {
-            background: #c6f6d5;
-            color: #22543d;
-        }
-
-        .status.offline {
-            background: #fed7d7;
-            color: #742a2a;
-        }
-
-        .grid-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-
-        @media (max-width: 768px) {
-            .grid-2 {
-                grid-template-columns: 1fr;
-            }
-            
-            .info-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .header h1 {
-                font-size: 2rem;
-            }
-        }
-    </style>
+    <title>Dashboard Umbler - Sistema de Atendimento</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.css" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🚀 Umbler Webhook Tester</h1>
-            <p>Teste e monitore webhooks da Umbler em tempo real</p>
+<body class="bg-gray-50">
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="fixed inset-0 bg-white z-50 flex items-center justify-center">
+        <div class="text-center">
+            <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <h2 class="text-xl font-semibold text-gray-700">Carregando Dashboard...</h2>
         </div>
+    </div>
 
-        <div class="main-content">
-            <!-- Status do Servidor -->
-            <div class="section webhook-info">
-                <h2>📡 Status do Servidor</h2>
-                <div class="info-grid">
-                    <div class="info-card">
-                        <h3>Status da Conexão</h3>
-                        <div id="server-status" class="status offline">🔴 Verificando...</div>
-                        <p>Status da conexão com o servidor webhook</p>
-                    </div>
-                    <div class="info-card">
-                        <h3>URL do Webhook</h3>
-                        <div class="url-display" id="webhook-url">Carregando...</div>
-                        <button class="btn" onclick="copyWebhookUrl()">📋 Copiar URL</button>
-                        <div style="margin-top: 10px;">
-                            <button class="btn btn-success" onclick="startTunnel()">🌐 Iniciar Túnel</button>
-                            <button class="btn btn-danger" onclick="stopTunnel()">🛑 Parar Túnel</button>
+    <!-- Main Container -->
+    <div id="app" class="min-h-screen hidden">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-4">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-headset text-2xl text-blue-600"></i>
                         </div>
-                        <div id="tunnel-status" style="margin-top: 10px; font-size: 0.9rem; color: #666;"></div>
+                        <div class="ml-3">
+                            <h1 class="text-xl font-semibold text-gray-900">Dashboard Umbler</h1>
+                            <p class="text-sm text-gray-500">Sistema de Atendimento WhatsApp</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2">
+                            <div id="connectionStatus" class="w-3 h-3 rounded-full bg-red-500"></div>
+                            <span id="connectionText" class="text-sm text-gray-600">Desconectado</span>
+                        </div>
+                        <button id="refreshBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                            <i class="fas fa-sync-alt mr-2"></i>Atualizar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-users text-blue-600"></i>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-500">Total de Contatos</p>
+                            <p id="totalContacts" class="text-2xl font-semibold text-gray-900">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-comments text-green-600"></i>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-500">Conversas Ativas</p>
+                            <p id="activeConversations" class="text-2xl font-semibold text-gray-900">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-clock text-yellow-600"></i>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-500">Tempo Médio Resposta</p>
+                            <p id="avgResponseTime" class="text-2xl font-semibold text-gray-900">0 min</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-chart-line text-purple-600"></i>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-500">Mensagens Hoje</p>
+                            <p id="messagesToday" class="text-2xl font-semibold text-gray-900">0</p>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Teste de Webhook -->
-            <div class="section test-section">
-                <h2>🧪 Testar Webhook</h2>
-                <div class="grid-2">
-                    <div>
-                        <div class="form-group">
-                            <label for="test-phone">📱 Telefone</label>
-                            <input type="text" id="test-phone" placeholder="+5511999999999" value="+5511999999999">
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Atividade em Tempo Real</h3>
+                    <canvas id="realtimeChart" width="400" height="200"></canvas>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Mensagens por Hora</h3>
+                    <canvas id="hourlyChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+
+            <!-- Contacts Section -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-semibold text-gray-900">Contatos Recentes</h3>
+                        <div class="flex items-center space-x-4">
+                            <div class="relative">
+                                <select id="tagFilter" class="appearance-none bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Todas as Tags</option>
+                                    <option value="✨ REPECON FIAT">✨ REPECON FIAT</option>
+                                    <option value="✨ AUTOMEGA">✨ AUTOMEGA</option>
+                                    <option value="🐨 LOJISTA">🐨 LOJISTA</option>
+                                    <option value="🐨 DICAS">🐨 DICAS</option>
+                                    <option value="🐨 PIX VISTORIA">🐨 PIX VISTORIA</option>
+                                    <option value="🐨 CLIENTE BALCAO">🐨 CLIENTE BALCAO</option>
+                                    <option value="🥳 PV">🥳 PV</option>
+                                    <option value="💗 Troca">💗 Troca</option>
+                                    <option value="💛 Zero">💛 Zero</option>
+                                    <option value="🤎 zero fora">🤎 zero fora</option>
+                                    <option value="💚 seminovo">💚 seminovo</option>
+                                    <option value="🐨 Site AF PH">🐨 Site AF PH</option>
+                                    <option value="🐨 Realizado">🐨 Realizado</option>
+                                    <option value="🐨 Não realizado">🐨 Não realizado</option>
+                                    <option value="🐨 Qualificação">🐨 Qualificação</option>
+                                    <option value="🐨 Pendente">🐨 Pendente</option>
+                                    <option value="🐨 Orçamento Enviado">🐨 Orçamento Enviado</option>
+                                    <option value="🐨 PGTO">🐨 PGTO</option>
+                                    <option value="🐨 Grupos">🐨 Grupos</option>
+                                    <option value="🐨 AVISO">🐨 AVISO</option>
+                                    <option value="💙 Particular SJ">💙 Particular SJ</option>
+                                    <option value="😆 ZERO TUDO">😆 ZERO TUDO</option>
+                                    <option value="🚘 ZERO ESCOLHA">🚘 ZERO ESCOLHA</option>
+                                    <option value="🥰 TROCA ESCOLHA">🥰 TROCA ESCOLHA</option>
+                                    <option value="🤢 TROCA TUDO">🤢 TROCA TUDO</option>
+                                    <option value="🤍 Ana">🤍 Ana</option>
+                                    <option value="⏳ Aguardando Verificação">⏳ Aguardando Verificação</option>
+                                    <option value="🥖 Blumenau">🥖 Blumenau</option>
+                                    <option value="🛑 RECALL">🛑 RECALL</option>
+                                    <option value="🐨 Resolvendo com COO">🐨 Resolvendo com COO</option>
+                                    <option value="🖤 BLUMENAU">🖤 BLUMENAU</option>
+                                    <option value="🕗 Negociando">🕗 Negociando</option>
+                                    <option value="🐨 Parceiro">🐨 Parceiro</option>
+                                </select>
+                            </div>
+                            <input type="text" id="searchContacts" placeholder="Buscar contatos..." class="bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
-                        <div class="form-group">
-                            <label for="test-message">💬 Mensagem</label>
-                            <textarea id="test-message" rows="4" placeholder="Digite sua mensagem de teste aqui...">Olá! Esta é uma mensagem de teste do webhook Umbler.</textarea>
-                        </div>
-                        <button class="btn btn-success" onclick="sendTestWebhook()">📤 Enviar Teste</button>
-                        <button class="btn" onclick="generateRandomTest()">🎲 Gerar Teste Aleatório</button>
                     </div>
-                    <div>
-                        <h3>📋 Payload JSON</h3>
-                        <div class="logs" id="test-payload" style="max-height: 200px;">
-{
-  "event": "message_received",
-  "timestamp": "2024-01-28T10:30:00Z",
-  "message": {
-    "id": "msg_123456",
-    "type": "text",
-    "content": "Sua mensagem...",
-    "direction": "inbound"
-  },
-  "contact": {
-    "phone": "+5511999999999",
-    "name": "Teste"
-  }
-}
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contato</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tags</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Última Mensagem</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="contactsTableBody" class="bg-white divide-y divide-gray-200">
+                            <!-- Contacts will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="px-6 py-4 border-t border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div class="text-sm text-gray-700">
+                            Mostrando <span id="showingContacts">0</span> de <span id="totalContactsCount">0</span> contatos
+                        </div>
+                        <div class="flex space-x-2">
+                            <button id="prevPage" class="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50">Anterior</button>
+                            <span id="currentPage" class="px-3 py-1 text-sm text-gray-700">1</span>
+                            <button id="nextPage" class="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50">Próximo</button>
                         </div>
                     </div>
                 </div>
             </div>
+        </main>
+    </div>
 
-            <!-- Logs e Monitoramento -->
-            <div class="section logs-section">
-                <h2>📊 Logs em Tempo Real</h2>
-                <div style="margin-bottom: 20px;">
-                    <button class="btn btn-success" onclick="startLogs()">▶️ Iniciar Logs</button>
-                    <button class="btn btn-danger" onclick="stopLogs()">⏹️ Parar Logs</button>
-                    <button class="btn" onclick="clearLogs()">🗑️ Limpar</button>
-                    <button class="btn" onclick="downloadLogs()">💾 Download</button>
+    <!-- Chat Modal -->
+    <div id="chatModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl h-96 flex flex-col">
+                <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-user text-blue-600"></i>
+                        </div>
+                        <div class="ml-3">
+                            <h3 id="chatContactName" class="text-lg font-semibold text-gray-900">Nome do Contato</h3>
+                            <p id="chatContactPhone" class="text-sm text-gray-500">Telefone</p>
+                        </div>
+                    </div>
+                    <button id="closeChatModal" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
                 </div>
-                <div class="logs" id="live-logs">🔄 Conectando aos logs em tempo real...
-Aguarde enquanto estabelecemos conexão com o servidor...</div>
+                <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-4">
+                    <!-- Messages will be loaded here -->
+                </div>
+                <div class="p-4 border-t border-gray-200">
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="newMessage" placeholder="Digite sua mensagem..." class="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <button id="sendMessage" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <script>
-        let logsInterval = null;
-        let webhookUrl = '';
-
-        // Verificar status do servidor
-        async function checkServerStatus() {
-            try {
-                const response = await fetch('/health');
-                const data = await response.json();
-                
-                if (data.status === 'OK') {
-                    document.getElementById('server-status').className = 'status online';
-                    document.getElementById('server-status').textContent = '🟢 Online';
-                } else {
-                    throw new Error('Server not healthy');
-                }
-            } catch (error) {
-                document.getElementById('server-status').className = 'status offline';
-                document.getElementById('server-status').textContent = '🔴 Offline';
-            }
-        }
-
-        // Obter URL do webhook
-        async function getWebhookUrl() {
-            try {
-                const response = await fetch('/api/webhook/info');
-                const data = await response.json();
-                webhookUrl = data.webhookUrl || 'http://localhost:3000/webhook/umbler';
-                document.getElementById('webhook-url').textContent = webhookUrl;
-                
-                // Atualizar status do túnel
-                if (data.tunnelInfo) {
-                    updateTunnelStatus(data.tunnelInfo);
-                }
-            } catch (error) {
-                webhookUrl = 'http://localhost:3000/webhook/umbler';
-                document.getElementById('webhook-url').textContent = webhookUrl;
-                updateTunnelStatus({ isActive: false, status: 'disconnected' });
-            }
-        }
-
-        // Copiar URL do webhook
-        function copyWebhookUrl() {
-            navigator.clipboard.writeText(webhookUrl).then(() => {
-                alert('URL copiada para a área de transferência!');
-            });
-        }
-
-        // Enviar teste de webhook
-        async function sendTestWebhook() {
-            const phone = document.getElementById('test-phone').value;
-            const message = document.getElementById('test-message').value;
-            
-            const payload = {
-                event: "message_received",
-                timestamp: new Date().toISOString(),
-                webhook_id: "test_" + Date.now(),
-                message: {
-                    id: "msg_" + Math.random().toString(36).substr(2, 9),
-                    type: "text",
-                    content: message,
-                    direction: "inbound",
-                    timestamp: new Date().toISOString()
-                },
-                contact: {
-                    phone: phone,
-                    name: "Teste Usuario",
-                    email: "teste@exemplo.com"
-                },
-                conversation: {
-                    id: "conv_" + Math.random().toString(36).substr(2, 9),
-                    status: "open",
-                    channel: "whatsapp"
-                }
-            };
-
-            document.getElementById('test-payload').textContent = JSON.stringify(payload, null, 2);
-
-            try {
-                const response = await fetch('/webhook/umbler', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                const result = await response.text();
-                addLog(`✅ Teste enviado: ${response.status} - ${result}`);
-            } catch (error) {
-                addLog(`❌ Erro no teste: ${error.message}`);
-            }
-        }
-
-        // Gerar teste aleatório
-        function generateRandomTest() {
-            const phones = ['+5511999999999', '+5511888888888', '+5521777777777'];
-            const messages = [
-                'Olá! Como posso ajudar?',
-                'Gostaria de mais informações',
-                'Obrigado pelo atendimento!',
-                'Quando teremos novidades?',
-                'Excelente serviço! 👏'
-            ];
-
-            document.getElementById('test-phone').value = phones[Math.floor(Math.random() * phones.length)];
-            document.getElementById('test-message').value = messages[Math.floor(Math.random() * messages.length)];
-        }
-
-        // Gerenciar logs
-        function startLogs() {
-            if (logsInterval) return;
-            
-            logsInterval = setInterval(async () => {
-                try {
-                    const response = await fetch('/api/logs/recent');
-                    const logs = await response.json();
-                    
-                    if (logs.length > 0) {
-                        logs.forEach(log => {
-                            addLog(log.message);
-                        });
-                    }
-                } catch (error) {
-                    addLog(`❌ Erro ao buscar logs: ${error.message}`);
-                }
-            }, 2000);
-            
-            addLog('🔄 Logs em tempo real iniciados...');
-        }
-
-        function stopLogs() {
-            if (logsInterval) {
-                clearInterval(logsInterval);
-                logsInterval = null;
-                addLog('⏹️ Logs em tempo real parados.');
-            }
-        }
-
-        function clearLogs() {
-            document.getElementById('live-logs').textContent = '';
-        }
-
-        function addLog(message) {
-            const logsElement = document.getElementById('live-logs');
-            const timestamp = new Date().toLocaleTimeString();
-            logsElement.textContent += `[${timestamp}] ${message}\n`;
-            logsElement.scrollTop = logsElement.scrollHeight;
-        }
-
-        function downloadLogs() {
-            const logs = document.getElementById('live-logs').textContent;
-            const blob = new Blob([logs], { type: 'text/plain' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `webhook-logs-${new Date().toISOString().slice(0, 10)}.txt`;
-            a.click();
-            window.URL.revokeObjectURL(url);
-        }
-
-        // Controle do túnel
-        async function startTunnel() {
-            try {
-                addLog('🔄 Iniciando túnel público...');
-                const response = await fetch('/api/tunnel/start', { method: 'POST' });
-                const data = await response.json();
-                
-                if (data.success) {
-                    addLog('✅ Túnel iniciado com sucesso!');
-                    updateTunnelStatus(data.tunnelInfo);
-                    // Atualizar webhook URL
-                    await getWebhookUrl();
-                } else {
-                    addLog(`❌ Erro ao iniciar túnel: ${data.error}`);
-                }
-            } catch (error) {
-                addLog(`❌ Erro ao iniciar túnel: ${error.message}`);
-            }
-        }
-
-        async function stopTunnel() {
-            try {
-                addLog('🛑 Parando túnel público...');
-                const response = await fetch('/api/tunnel/stop', { method: 'POST' });
-                const data = await response.json();
-                
-                if (data.success) {
-                    addLog('✅ Túnel parado com sucesso!');
-                    updateTunnelStatus(data.tunnelInfo);
-                    // Atualizar webhook URL
-                    await getWebhookUrl();
-                } else {
-                    addLog(`❌ Erro ao parar túnel: ${data.error}`);
-                }
-            } catch (error) {
-                addLog(`❌ Erro ao parar túnel: ${error.message}`);
-            }
-        }
-
-        function updateTunnelStatus(tunnelInfo) {
-            const statusElement = document.getElementById('tunnel-status');
-            
-            if (tunnelInfo.isActive) {
-                statusElement.innerHTML = `
-                    <span style="color: #22543d;">🟢 Túnel ativo</span><br>
-                    <small>Região: ${tunnelInfo.region || 'sa'} | Status: ${tunnelInfo.status}</small>
-                `;
-            } else {
-                statusElement.innerHTML = `
-                    <span style="color: #742a2a;">🔴 Túnel inativo</span><br>
-                    <small>Use localhost para testes locais</small>
-                `;
-            }
-        }
-
-        // Inicialização
-        document.addEventListener('DOMContentLoaded', function() {
-            checkServerStatus();
-            getWebhookUrl();
-            
-            // Verificar status a cada 30 segundos
-            setInterval(checkServerStatus, 30000);
-            setInterval(getWebhookUrl, 60000); // Atualizar webhook URL a cada minuto
-            
-            addLog('🚀 Interface carregada com sucesso!');
-            addLog('💡 Use os botões acima para testar o webhook');
-            addLog('🌐 Use o túnel público para receber webhooks reais da Umbler');
-        });
-    </script>
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
