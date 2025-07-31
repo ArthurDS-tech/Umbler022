@@ -7,224 +7,292 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="styles.css" rel="stylesheet">
 </head>
-<body class="bg-gray-50">
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 font-['Inter']">
     <!-- Loading Screen -->
-    <div id="loadingScreen" class="fixed inset-0 bg-white z-50 flex items-center justify-center">
-        <div class="text-center">
-            <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <h2 class="text-xl font-semibold text-gray-700">Carregando Dashboard...</h2>
+    <div id="loadingScreen" class="fixed inset-0 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 z-50 flex items-center justify-center">
+        <div class="text-center text-white">
+            <div class="relative">
+                <div class="w-20 h-20 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-6"></div>
+                <div class="absolute inset-0 w-20 h-20 border-4 border-transparent border-t-white/60 rounded-full animate-spin mx-auto" style="animation-delay: -0.5s;"></div>
+            </div>
+            <h2 class="text-2xl font-semibold mb-2">Carregando Dashboard</h2>
+            <p class="text-blue-100">Preparando sua experiência...</p>
         </div>
     </div>
 
     <!-- Main Container -->
     <div id="app" class="min-h-screen hidden">
-        <!-- Header -->
-        <header class="bg-white shadow-sm border-b border-gray-200">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between items-center py-4">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-headset text-2xl text-blue-600"></i>
+        <!-- Sidebar -->
+        <div class="fixed inset-y-0 left-0 w-64 bg-white/80 backdrop-blur-xl border-r border-gray-200/50 z-40">
+            <div class="flex flex-col h-full">
+                <!-- Logo -->
+                <div class="p-6 border-b border-gray-200/50">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-headset text-white text-lg"></i>
                         </div>
-                        <div class="ml-3">
-                            <h1 class="text-xl font-semibold text-gray-900">Dashboard Umbler</h1>
-                            <p class="text-sm text-gray-500">Sistema de Atendimento WhatsApp</p>
+                        <div>
+                            <h1 class="text-xl font-bold text-gray-900">Umbler</h1>
+                            <p class="text-sm text-gray-500">Dashboard</p>
                         </div>
                     </div>
-                    <div class="flex items-center space-x-4">
-                        <div class="flex items-center space-x-2">
-                            <div id="connectionStatus" class="w-3 h-3 rounded-full bg-red-500"></div>
-                            <span id="connectionText" class="text-sm text-gray-600">Desconectado</span>
-                        </div>
-                        <button id="refreshBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                            <i class="fas fa-sync-alt mr-2"></i>Atualizar
-                        </button>
+                </div>
+
+                <!-- Navigation -->
+                <nav class="flex-1 p-6 space-y-2">
+                    <a href="#" class="flex items-center space-x-3 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white font-medium">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Visão Geral</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-100/50 transition-all">
+                        <i class="fas fa-users"></i>
+                        <span>Contatos</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-100/50 transition-all">
+                        <i class="fas fa-comments"></i>
+                        <span>Conversas</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-100/50 transition-all">
+                        <i class="fas fa-chart-bar"></i>
+                        <span>Relatórios</span>
+                    </a>
+                </nav>
+
+                <!-- Status -->
+                <div class="p-6 border-t border-gray-200/50">
+                    <div class="flex items-center space-x-3">
+                        <div id="connectionStatus" class="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
+                        <span id="connectionText" class="text-sm text-gray-600">Desconectado</span>
                     </div>
                 </div>
             </div>
-        </header>
+        </div>
 
         <!-- Main Content -->
-        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <!-- Stats Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                                <i class="fas fa-users text-blue-600"></i>
-                            </div>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-500">Total de Contatos</p>
-                            <p id="totalContacts" class="text-2xl font-semibold text-gray-900">0</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                                <i class="fas fa-comments text-green-600"></i>
-                            </div>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-500">Conversas Ativas</p>
-                            <p id="activeConversations" class="text-2xl font-semibold text-gray-900">0</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <div class="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
-                                <i class="fas fa-clock text-yellow-600"></i>
-                            </div>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-500">Tempo Médio Resposta</p>
-                            <p id="avgResponseTime" class="text-2xl font-semibold text-gray-900">0 min</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                                <i class="fas fa-chart-line text-purple-600"></i>
-                            </div>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-500">Mensagens Hoje</p>
-                            <p id="messagesToday" class="text-2xl font-semibold text-gray-900">0</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Charts Section -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Atividade em Tempo Real</h3>
-                    <canvas id="realtimeChart" width="400" height="200"></canvas>
-                </div>
-
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Mensagens por Hora</h3>
-                    <canvas id="hourlyChart" width="400" height="200"></canvas>
-                </div>
-            </div>
-
-            <!-- Contacts Section -->
-            <div class="bg-white rounded-lg shadow">
-                <div class="px-6 py-4 border-b border-gray-200">
+        <div class="ml-64">
+            <!-- Header -->
+            <header class="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 sticky top-0 z-30">
+                <div class="px-8 py-6">
                     <div class="flex justify-between items-center">
-                        <h3 class="text-lg font-semibold text-gray-900">Contatos Recentes</h3>
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900">Visão Geral</h2>
+                            <p class="text-gray-500">Monitore seus atendimentos em tempo real</p>
+                        </div>
                         <div class="flex items-center space-x-4">
-                            <div class="relative">
-                                <select id="tagFilter" class="appearance-none bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    <option value="">Todas as Tags</option>
-                                    <option value="✨ REPECON FIAT">✨ REPECON FIAT</option>
-                                    <option value="✨ AUTOMEGA">✨ AUTOMEGA</option>
-                                    <option value="🐨 LOJISTA">🐨 LOJISTA</option>
-                                    <option value="🐨 DICAS">🐨 DICAS</option>
-                                    <option value="🐨 PIX VISTORIA">🐨 PIX VISTORIA</option>
-                                    <option value="🐨 CLIENTE BALCAO">🐨 CLIENTE BALCAO</option>
-                                    <option value="🥳 PV">🥳 PV</option>
-                                    <option value="💗 Troca">💗 Troca</option>
-                                    <option value="💛 Zero">💛 Zero</option>
-                                    <option value="🤎 zero fora">🤎 zero fora</option>
-                                    <option value="💚 seminovo">💚 seminovo</option>
-                                    <option value="🐨 Site AF PH">🐨 Site AF PH</option>
-                                    <option value="🐨 Realizado">🐨 Realizado</option>
-                                    <option value="🐨 Não realizado">🐨 Não realizado</option>
-                                    <option value="🐨 Qualificação">🐨 Qualificação</option>
-                                    <option value="🐨 Pendente">🐨 Pendente</option>
-                                    <option value="🐨 Orçamento Enviado">🐨 Orçamento Enviado</option>
-                                    <option value="🐨 PGTO">🐨 PGTO</option>
-                                    <option value="🐨 Grupos">🐨 Grupos</option>
-                                    <option value="🐨 AVISO">🐨 AVISO</option>
-                                    <option value="💙 Particular SJ">💙 Particular SJ</option>
-                                    <option value="😆 ZERO TUDO">😆 ZERO TUDO</option>
-                                    <option value="🚘 ZERO ESCOLHA">🚘 ZERO ESCOLHA</option>
-                                    <option value="🥰 TROCA ESCOLHA">🥰 TROCA ESCOLHA</option>
-                                    <option value="🤢 TROCA TUDO">🤢 TROCA TUDO</option>
-                                    <option value="🤍 Ana">🤍 Ana</option>
-                                    <option value="⏳ Aguardando Verificação">⏳ Aguardando Verificação</option>
-                                    <option value="🥖 Blumenau">🥖 Blumenau</option>
-                                    <option value="🛑 RECALL">🛑 RECALL</option>
-                                    <option value="🐨 Resolvendo com COO">🐨 Resolvendo com COO</option>
-                                    <option value="🖤 BLUMENAU">🖤 BLUMENAU</option>
-                                    <option value="🕗 Negociando">🕗 Negociando</option>
-                                    <option value="🐨 Parceiro">🐨 Parceiro</option>
-                                </select>
+                            <button id="refreshBtn" class="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg hover:scale-105 transition-all duration-200">
+                                <i class="fas fa-sync-alt mr-2"></i>Atualizar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content -->
+            <main class="p-8">
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white/80 backdrop-blur-xl rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200/50">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500 mb-1">Total de Contatos</p>
+                                <p id="totalContacts" class="text-3xl font-bold text-gray-900">0</p>
+                                <p class="text-xs text-green-600 mt-1">+12% este mês</p>
                             </div>
-                            <input type="text" id="searchContacts" placeholder="Buscar contatos..." class="bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+                                <i class="fas fa-users text-white text-lg"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white/80 backdrop-blur-xl rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200/50">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500 mb-1">Conversas Ativas</p>
+                                <p id="activeConversations" class="text-3xl font-bold text-gray-900">0</p>
+                                <p class="text-xs text-blue-600 mt-1">+5% hoje</p>
+                            </div>
+                            <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
+                                <i class="fas fa-comments text-white text-lg"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white/80 backdrop-blur-xl rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200/50">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500 mb-1">Tempo Médio Resposta</p>
+                                <p id="avgResponseTime" class="text-3xl font-bold text-gray-900">0 min</p>
+                                <p class="text-xs text-yellow-600 mt-1">-8% esta semana</p>
+                            </div>
+                            <div class="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center">
+                                <i class="fas fa-clock text-white text-lg"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white/80 backdrop-blur-xl rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200/50">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500 mb-1">Mensagens Hoje</p>
+                                <p id="messagesToday" class="text-3xl font-bold text-gray-900">0</p>
+                                <p class="text-xs text-purple-600 mt-1">+23% hoje</p>
+                            </div>
+                            <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
+                                <i class="fas fa-chart-line text-white text-lg"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contato</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tags</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Última Mensagem</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="contactsTableBody" class="bg-white divide-y divide-gray-200">
-                            <!-- Contacts will be loaded here -->
-                        </tbody>
-                    </table>
-                </div>
-                <div class="px-6 py-4 border-t border-gray-200">
-                    <div class="flex items-center justify-between">
-                        <div class="text-sm text-gray-700">
-                            Mostrando <span id="showingContacts">0</span> de <span id="totalContactsCount">0</span> contatos
+
+                <!-- Charts Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <div class="bg-white/80 backdrop-blur-xl rounded-2xl p-6 shadow-lg border border-gray-200/50">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-lg font-semibold text-gray-900">Atividade em Tempo Real</h3>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                                <span class="text-sm text-gray-500">Mensagens</span>
+                            </div>
                         </div>
-                        <div class="flex space-x-2">
-                            <button id="prevPage" class="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50">Anterior</button>
-                            <span id="currentPage" class="px-3 py-1 text-sm text-gray-700">1</span>
-                            <button id="nextPage" class="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50">Próximo</button>
+                        <div class="relative h-80">
+                            <canvas id="realtimeChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-white/80 backdrop-blur-xl rounded-2xl p-6 shadow-lg border border-gray-200/50">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-lg font-semibold text-gray-900">Mensagens por Hora</h3>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                                <span class="text-sm text-gray-500">Volume</span>
+                            </div>
+                        </div>
+                        <div class="relative h-80">
+                            <canvas id="hourlyChart"></canvas>
                         </div>
                     </div>
                 </div>
-            </div>
-        </main>
+
+                <!-- Contacts Section -->
+                <div class="bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg border border-gray-200/50 overflow-hidden">
+                    <div class="px-8 py-6 border-b border-gray-200/50">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h3 class="text-xl font-semibold text-gray-900">Contatos Recentes</h3>
+                                <p class="text-gray-500">Gerencie seus contatos e conversas</p>
+                            </div>
+                            <div class="flex items-center space-x-4">
+                                <div class="relative">
+                                    <select id="tagFilter" class="appearance-none bg-white/50 backdrop-blur-sm border border-gray-300/50 rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        <option value="">Todas as Tags</option>
+                                        <option value="✨ REPECON FIAT">✨ REPECON FIAT</option>
+                                        <option value="✨ AUTOMEGA">✨ AUTOMEGA</option>
+                                        <option value="🐨 LOJISTA">🐨 LOJISTA</option>
+                                        <option value="🐨 DICAS">🐨 DICAS</option>
+                                        <option value="🐨 PIX VISTORIA">🐨 PIX VISTORIA</option>
+                                        <option value="🐨 CLIENTE BALCAO">🐨 CLIENTE BALCAO</option>
+                                        <option value="🥳 PV">🥳 PV</option>
+                                        <option value="💗 Troca">💗 Troca</option>
+                                        <option value="💛 Zero">💛 Zero</option>
+                                        <option value="🤎 zero fora">🤎 zero fora</option>
+                                        <option value="💚 seminovo">💚 seminovo</option>
+                                        <option value="🐨 Site AF PH">🐨 Site AF PH</option>
+                                        <option value="🐨 Realizado">🐨 Realizado</option>
+                                        <option value="🐨 Não realizado">🐨 Não realizado</option>
+                                        <option value="🐨 Qualificação">🐨 Qualificação</option>
+                                        <option value="🐨 Pendente">🐨 Pendente</option>
+                                        <option value="🐨 Orçamento Enviado">🐨 Orçamento Enviado</option>
+                                        <option value="🐨 PGTO">🐨 PGTO</option>
+                                        <option value="🐨 Grupos">🐨 Grupos</option>
+                                        <option value="🐨 AVISO">🐨 AVISO</option>
+                                        <option value="💙 Particular SJ">💙 Particular SJ</option>
+                                        <option value="😆 ZERO TUDO">😆 ZERO TUDO</option>
+                                        <option value="🚘 ZERO ESCOLHA">🚘 ZERO ESCOLHA</option>
+                                        <option value="🥰 TROCA ESCOLHA">🥰 TROCA ESCOLHA</option>
+                                        <option value="🤢 TROCA TUDO">🤢 TROCA TUDO</option>
+                                        <option value="🤍 Ana">🤍 Ana</option>
+                                        <option value="⏳ Aguardando Verificação">⏳ Aguardando Verificação</option>
+                                        <option value="🥖 Blumenau">🥖 Blumenau</option>
+                                        <option value="🛑 RECALL">🛑 RECALL</option>
+                                        <option value="🐨 Resolvendo com COO">🐨 Resolvendo com COO</option>
+                                        <option value="🖤 BLUMENAU">🖤 BLUMENAU</option>
+                                        <option value="🕗 Negociando">🕗 Negociando</option>
+                                        <option value="🐨 Parceiro">🐨 Parceiro</option>
+                                    </select>
+                                    <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                        <i class="fas fa-chevron-down text-gray-400"></i>
+                                    </div>
+                                </div>
+                                <div class="relative">
+                                    <input type="text" id="searchContacts" placeholder="Buscar contatos..." class="bg-white/50 backdrop-blur-sm border border-gray-300/50 rounded-xl px-4 py-3 pl-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64">
+                                    <div class="absolute inset-y-0 left-0 flex items-center pl-3">
+                                        <i class="fas fa-search text-gray-400"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200/50">
+                            <thead class="bg-gray-50/50">
+                                <tr>
+                                    <th class="px-8 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Contato</th>
+                                    <th class="px-8 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tags</th>
+                                    <th class="px-8 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Última Mensagem</th>
+                                    <th class="px-8 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-8 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="contactsTableBody" class="bg-white/30 divide-y divide-gray-200/30">
+                                <!-- Contacts will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="px-8 py-4 border-t border-gray-200/50 bg-gray-50/30">
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm text-gray-600">
+                                Mostrando <span id="showingContacts" class="font-semibold">0</span> de <span id="totalContactsCount" class="font-semibold">0</span> contatos
+                            </div>
+                            <div class="flex space-x-2">
+                                <button id="prevPage" class="px-4 py-2 text-sm border border-gray-300/50 rounded-lg hover:bg-white/50 disabled:opacity-50 transition-all">Anterior</button>
+                                <span id="currentPage" class="px-4 py-2 text-sm text-gray-700 font-medium">1</span>
+                                <button id="nextPage" class="px-4 py-2 text-sm border border-gray-300/50 rounded-lg hover:bg-white/50 disabled:opacity-50 transition-all">Próximo</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
     </div>
 
     <!-- Chat Modal -->
-    <div id="chatModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div id="chatModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50">
         <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl h-96 flex flex-col">
-                <div class="flex items-center justify-between p-4 border-b border-gray-200">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-96 flex flex-col overflow-hidden">
+                <div class="flex items-center justify-between p-6 border-b border-gray-200/50 bg-gradient-to-r from-blue-500 to-purple-600 text-white">
                     <div class="flex items-center">
-                        <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <i class="fas fa-user text-blue-600"></i>
+                        <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                            <i class="fas fa-user text-white"></i>
                         </div>
-                        <div class="ml-3">
-                            <h3 id="chatContactName" class="text-lg font-semibold text-gray-900">Nome do Contato</h3>
-                            <p id="chatContactPhone" class="text-sm text-gray-500">Telefone</p>
+                        <div class="ml-4">
+                            <h3 id="chatContactName" class="text-lg font-semibold">Nome do Contato</h3>
+                            <p id="chatContactPhone" class="text-blue-100">Telefone</p>
                         </div>
                     </div>
-                    <button id="closeChatModal" class="text-gray-400 hover:text-gray-600">
+                    <button id="closeChatModal" class="text-white/80 hover:text-white transition-colors">
                         <i class="fas fa-times text-xl"></i>
                     </button>
                 </div>
-                <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-4">
+                <div id="chatMessages" class="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50/30">
                     <!-- Messages will be loaded here -->
                 </div>
-                <div class="p-4 border-t border-gray-200">
-                    <div class="flex items-center space-x-2">
-                        <input type="text" id="newMessage" placeholder="Digite sua mensagem..." class="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <button id="sendMessage" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                <div class="p-6 border-t border-gray-200/50 bg-white">
+                    <div class="flex items-center space-x-3">
+                        <input type="text" id="newMessage" placeholder="Digite sua mensagem..." class="flex-1 border border-gray-300/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <button id="sendMessage" class="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200">
                             <i class="fas fa-paper-plane"></i>
                         </button>
                     </div>
