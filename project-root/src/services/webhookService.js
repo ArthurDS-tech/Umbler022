@@ -75,58 +75,80 @@ class WebhookService {
    * Processar evento de mensagem
    */
   async _processMessageEvent(payload) {
-    const { message, contact, conversation } = payload;
-    
-    // 1. Processar/criar contato
-    const contactResult = await contactService.createOrUpdateContact({
-      phone: contact.phone,
-      name: contact.name,
-      email: contact.email,
-      profilePicUrl: contact.profile_pic,
-      metadata: {
-        source: 'umbler_webhook',
-        lastWebhookUpdate: new Date().toISOString()
+    try {
+      // Extrair dados do payload da Umbler
+      const { Payload } = payload;
+      if (!Payload || !Payload.Content) {
+        throw new Error('Payload inválido: estrutura esperada não encontrada');
       }
-    });
-    
-    // 2. Processar/criar conversa
-    const conversationResult = await conversationService.createOrUpdateConversation({
-      contactId: contactResult.id,
-      umblerConversationId: conversation?.id,
-      channel: 'whatsapp',
-      status: conversation?.status || 'open',
-      metadata: {
-        source: 'umbler_webhook',
-        lastWebhookUpdate: new Date().toISOString()
+
+      const { Contact, Channel, LastMessage, Id: conversationId } = Payload.Content;
+      
+      // 1. Processar/criar contato
+      const contactResult = await contactService.createOrUpdateContact({
+        phone: Contact.PhoneNumber,
+        name: Contact.Name,
+        email: null, // Umbler não fornece email
+        profilePicUrl: Contact.ProfilePictureUrl,
+        tags: Contact.Tags?.map(tag => tag.Name) || [],
+        metadata: {
+          source: 'umbler_webhook',
+          lastWebhookUpdate: new Date().toISOString(),
+          contactId: Contact.Id,
+          isBlocked: Contact.IsBlocked,
+          contactType: Contact.ContactType,
+          lastActiveUTC: Contact.LastActiveUTC
+        }
+      });
+      
+      // 2. Processar/criar conversa
+      const conversationResult = await conversationService.createOrUpdateConversation({
+        contactId: contactResult.id,
+        umblerConversationId: conversationId,
+        channel: 'whatsapp',
+        status: 'open', // Umbler sempre envia conversas abertas
+        metadata: {
+          source: 'umbler_webhook',
+          lastWebhookUpdate: new Date().toISOString(),
+          channelId: Channel.Id,
+          channelName: Channel.Name,
+          channelType: Channel.ChannelType,
+          channelPhone: Channel.PhoneNumber,
+          organizationId: Payload.Content.Organization?.Id
+        }
+      });
+      
+      // 3. Processar mensagem se existir
+      let messageResult = null;
+      if (LastMessage) {
+        messageResult = await messageService.createMessage({
+          conversationId: conversationResult.id,
+          contactId: contactResult.id,
+          umblerMessageId: LastMessage.Id,
+          direction: 'inbound', // Mensagens da Umbler são sempre inbound
+          messageType: LastMessage.MessageType || 'text',
+          content: LastMessage.Content,
+          status: LastMessage.MessageState || 'received',
+          rawWebhookData: payload,
+          metadata: {
+            source: 'umbler_webhook',
+            timestamp: LastMessage.EventAtUTC,
+            messageState: LastMessage.MessageState,
+            sourceType: LastMessage.Source
+          }
+        });
       }
-    });
-    
-    // 3. Processar mensagem
-    const messageResult = await messageService.createMessage({
-      conversationId: conversationResult.id,
-      contactId: contactResult.id,
-      umblerMessageId: message.id,
-      direction: message.direction || (payload.event === 'message.received' ? 'inbound' : 'outbound'),
-      messageType: message.type || 'text',
-      content: message.content || message.text,
-      mediaUrl: message.media_url,
-      mediaFilename: message.media_filename,
-      mediaMimeType: message.media_mime_type,
-      mediaSize: message.media_size,
-      status: 'received',
-      rawWebhookData: payload,
-      metadata: {
-        source: 'umbler_webhook',
-        timestamp: message.timestamp
-      }
-    });
-    
-    return {
-      contactId: contactResult.id,
-      conversationId: conversationResult.id,
-      messageId: messageResult.id,
-      processed: true
-    };
+      
+      return {
+        contactId: contactResult.id,
+        conversationId: conversationResult.id,
+        messageId: messageResult?.id,
+        processed: true
+      };
+    } catch (error) {
+      logger.error('Erro ao processar evento de mensagem:', error);
+      throw error;
+    }
   }
   
   /**
@@ -475,6 +497,12 @@ class WebhookService {
    * Inferir tipo de evento baseado na estrutura do payload
    */
   _inferEventType(payload) {
+    // Para payload da Umbler
+    if (payload.Type === 'Message') return 'message.received';
+    if (payload.Type === 'Conversation') return 'conversation.updated';
+    if (payload.Type === 'Contact') return 'contact.updated';
+    
+    // Fallback para outros formatos
     if (payload.message && payload.contact) {
       return 'message.received';
     }
