@@ -73,6 +73,10 @@ async function setupCompleto() {
     console.log('\n4️⃣ TESTE DE INSERÇÃO');
     await runScript('test-webhook-insertion.js', 'Testando inserção de dados via webhook');
     
+    // Passo 5: Aplicar correções de segurança
+    console.log('\n5️⃣ CORREÇÕES DE SEGURANÇA');
+    await runScript('apply-security-fixes.js', 'Aplicando correções de segurança (RLS e políticas)');
+    
     // Sucesso
     console.log('\n' + '=' .repeat(60));
     console.log('🎉 CONFIGURAÇÃO CONCLUÍDA COM SUCESSO!');
@@ -82,6 +86,7 @@ async function setupCompleto() {
     console.log('✅ Conexão com Supabase estabelecida');
     console.log('✅ Tabelas criadas/verificadas');
     console.log('✅ Sistema de inserção funcionando');
+    console.log('✅ Correções de segurança aplicadas');
     console.log('');
     console.log('🚀 Próximos passos:');
     console.log('1. Inicie o servidor: npm run dev');
@@ -108,6 +113,7 @@ async function setupCompleto() {
     console.log('   - node test-supabase-connection.js');
     console.log('   - node setup-database-tables.js');
     console.log('   - node test-webhook-insertion.js');
+    console.log('   - node apply-security-fixes.js');
     console.log('');
     console.log('📖 Consulte CONFIGURACAO_SUPABASE.md para mais detalhes');
     console.log('');
