@@ -1,4 +1,4 @@
-const { supabaseAdmin } = require('../config/database');
+const { executeQuery, insertWithRetry, updateWithRetry, findWithCache } = require('../config/database');
 const contactService = require('./contactService');
 const messageService = require('./messageService');
 const conversationService = require('./conversationService');
@@ -16,7 +16,7 @@ class WebhookService {
   async processWebhook(payload, webhookEventId = null) {
     try {
       logger.info('🔄 Iniciando processamento do webhook', { 
-        eventType: payload.event,
+        eventType: payload.Type,
         webhookEventId 
       });
       
@@ -24,7 +24,7 @@ class WebhookService {
       this._validatePayload(payload);
       
       // Determinar tipo de evento e processar
-      const eventType = payload.event || this._inferEventType(payload);
+      const eventType = payload.Type || this._inferEventType(payload);
       
       let result = {
         eventType,
@@ -35,24 +35,16 @@ class WebhookService {
       };
       
       switch (eventType) {
-        case 'message.received':
-        case 'message.sent':
+        case 'Message':
           result = await this._processMessageEvent(payload);
           break;
           
-        case 'conversation.created':
-        case 'conversation.updated':
-        case 'conversation.closed':
+        case 'Conversation':
           result = await this._processConversationEvent(payload);
           break;
           
-        case 'contact.created':
-        case 'contact.updated':
+        case 'Contact':
           result = await this._processContactEvent(payload);
-          break;
-          
-        case 'message.status':
-          result = await this._processMessageStatusEvent(payload);
           break;
           
         default:
@@ -72,7 +64,7 @@ class WebhookService {
   }
   
   /**
-   * Processar evento de mensagem
+   * Processar evento de mensagem da Umbler
    */
   async _processMessageEvent(payload) {
     try {
@@ -82,61 +74,91 @@ class WebhookService {
         throw new Error('Payload inválido: estrutura esperada não encontrada');
       }
 
-      const { Contact, Channel, LastMessage, Id: conversationId } = Payload.Content;
+      const { Contact, Channel, LastMessage, Id: conversationId, Sector, OrganizationMember } = Payload.Content;
       
       // 1. Processar/criar contato
       const contactResult = await contactService.createOrUpdateContact({
-        phone: Contact.PhoneNumber,
+        umbler_contact_id: Contact.Id,
+        phone_number: Contact.PhoneNumber,
         name: Contact.Name,
         email: null, // Umbler não fornece email
-        profilePicUrl: Contact.ProfilePictureUrl,
-        tags: Contact.Tags?.map(tag => tag.Name) || [],
+        profile_picture_url: Contact.ProfilePictureUrl,
+        is_blocked: Contact.IsBlocked,
+        contact_type: Contact.ContactType,
+        last_active_utc: Contact.LastActiveUTC,
+        group_identifier: Contact.GroupIdentifier,
         metadata: {
           source: 'umbler_webhook',
-          lastWebhookUpdate: new Date().toISOString(),
-          contactId: Contact.Id,
-          isBlocked: Contact.IsBlocked,
-          contactType: Contact.ContactType,
-          lastActiveUTC: Contact.LastActiveUTC
+          last_webhook_update: new Date().toISOString(),
+          tags: Contact.Tags || []
         }
       });
       
-      // 2. Processar/criar conversa
+      // 2. Processar/criar canal
+      const channelResult = await this._createOrUpdateChannel(Channel);
+      
+      // 3. Processar/criar setor
+      const sectorResult = await this._createOrUpdateSector(Sector);
+      
+      // 4. Processar/criar membro da organização
+      const memberResult = await this._createOrUpdateOrganizationMember(OrganizationMember);
+      
+      // 5. Processar/criar conversa
       const conversationResult = await conversationService.createOrUpdateConversation({
-        contactId: contactResult.id,
-        umblerConversationId: conversationId,
-        channel: 'whatsapp',
-        status: 'open', // Umbler sempre envia conversas abertas
+        umbler_chat_id: conversationId,
+        contact_id: contactResult.id,
+        channel_id: channelResult?.id,
+        sector_id: sectorResult?.id,
+        assigned_member_id: memberResult?.id,
+        status: Payload.Content.Open ? 'open' : 'closed',
+        is_open: Payload.Content.Open,
+        is_private: Payload.Content.Private,
+        is_waiting: Payload.Content.Waiting,
+        waiting_since_utc: Payload.Content.WaitingSinceUTC,
+        total_unread: Payload.Content.TotalUnread || 0,
+        total_ai_responses: Payload.Content.TotalAIResponses,
+        closed_at_utc: Payload.Content.ClosedAtUTC,
+        event_at_utc: Payload.Content.EventAtUTC,
+        first_contact_message_id: Payload.Content.FirstContactMessage?.Id,
+        first_member_reply_message_id: Payload.Content.FirstMemberReplyMessage?.Id,
         metadata: {
           source: 'umbler_webhook',
-          lastWebhookUpdate: new Date().toISOString(),
-          channelId: Channel.Id,
-          channelName: Channel.Name,
-          channelType: Channel.ChannelType,
-          channelPhone: Channel.PhoneNumber,
-          organizationId: Payload.Content.Organization?.Id
+          last_webhook_update: new Date().toISOString(),
+          organization_id: Payload.Content.Organization?.Id
         }
       });
       
-      // 3. Processar mensagem se existir
+      // 6. Processar mensagem se existir
       let messageResult = null;
       if (LastMessage) {
         messageResult = await messageService.createMessage({
-          conversationId: conversationResult.id,
-          contactId: contactResult.id,
-          umblerMessageId: LastMessage.Id,
-          direction: 'inbound', // Mensagens da Umbler são sempre inbound
-          messageType: LastMessage.MessageType || 'text',
+          umbler_message_id: LastMessage.Id,
+          chat_id: conversationResult.id,
+          contact_id: contactResult.id,
+          organization_member_id: memberResult?.id,
+          message_type: LastMessage.MessageType || 'text',
           content: LastMessage.Content,
-          status: LastMessage.MessageState || 'received',
-          rawWebhookData: payload,
+          direction: 'inbound', // Mensagens da Umbler são sempre inbound
+          source: LastMessage.Source || 'Contact',
+          message_state: LastMessage.MessageState || 'received',
+          is_private: LastMessage.IsPrivate || false,
+          event_at_utc: LastMessage.EventAtUTC,
+          created_at_utc: LastMessage.CreatedAtUTC,
+          file_id: LastMessage.FileId,
+          template_id: LastMessage.TemplateId,
+          quoted_message_id: LastMessage.InReplyTo?.Id,
+          raw_webhook_data: payload,
           metadata: {
             source: 'umbler_webhook',
-            timestamp: LastMessage.EventAtUTC,
-            messageState: LastMessage.MessageState,
-            sourceType: LastMessage.Source
+            message_state: LastMessage.MessageState,
+            source_type: LastMessage.Source
           }
         });
+      }
+      
+      // 7. Processar tags do contato
+      if (Contact.Tags && Contact.Tags.length > 0) {
+        await this._processContactTags(contactResult.id, Contact.Tags);
       }
       
       return {
@@ -218,25 +240,6 @@ class WebhookService {
   }
   
   /**
-   * Processar evento de status de mensagem
-   */
-  async _processMessageStatusEvent(payload) {
-    const { message } = payload;
-    
-    const messageResult = await messageService.updateMessageStatus({
-      umblerMessageId: message.id,
-      status: message.status,
-      deliveredAt: message.delivered_at,
-      readAt: message.read_at
-    });
-    
-    return {
-      messageId: messageResult?.id,
-      processed: true
-    };
-  }
-  
-  /**
    * Processar evento desconhecido
    */
   async _processUnknownEvent(payload) {
@@ -256,30 +259,143 @@ class WebhookService {
   }
   
   /**
+   * Criar ou atualizar canal
+   */
+  async _createOrUpdateChannel(channelData) {
+    if (!channelData) return null;
+    
+    try {
+      const existingChannel = await findWithCache('channels', { umbler_channel_id: channelData.Id });
+      
+      if (existingChannel.data.length > 0) {
+        // Atualizar canal existente
+        return await updateWithRetry('channels', {
+          name: channelData.Name,
+          channel_type: channelData.ChannelType,
+          phone_number: channelData.PhoneNumber,
+          updated_at: new Date().toISOString()
+        }, { umbler_channel_id: channelData.Id });
+      } else {
+        // Criar novo canal
+        return await insertWithRetry('channels', {
+          umbler_channel_id: channelData.Id,
+          channel_type: channelData.ChannelType,
+          phone_number: channelData.PhoneNumber,
+          name: channelData.Name,
+          metadata: {
+            source: 'umbler_webhook',
+            created_at: new Date().toISOString()
+          }
+        });
+      }
+    } catch (error) {
+      logger.error('Erro ao processar canal:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Criar ou atualizar setor
+   */
+  async _createOrUpdateSector(sectorData) {
+    if (!sectorData) return null;
+    
+    try {
+      const existingSector = await findWithCache('sectors', { umbler_sector_id: sectorData.Id });
+      
+      if (existingSector.data.length > 0) {
+        // Atualizar setor existente
+        return await updateWithRetry('sectors', {
+          name: sectorData.Name,
+          is_default: sectorData.Default,
+          order_position: sectorData.Order,
+          updated_at: new Date().toISOString()
+        }, { umbler_sector_id: sectorData.Id });
+      } else {
+        // Criar novo setor
+        return await insertWithRetry('sectors', {
+          umbler_sector_id: sectorData.Id,
+          name: sectorData.Name,
+          is_default: sectorData.Default,
+          order_position: sectorData.Order,
+          metadata: {
+            source: 'umbler_webhook',
+            created_at: new Date().toISOString()
+          }
+        });
+      }
+    } catch (error) {
+      logger.error('Erro ao processar setor:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Criar ou atualizar membro da organização
+   */
+  async _createOrUpdateOrganizationMember(memberData) {
+    if (!memberData) return null;
+    
+    try {
+      const existingMember = await findWithCache('organization_members', { umbler_member_id: memberData.Id });
+      
+      if (existingMember.data.length > 0) {
+        // Atualizar membro existente
+        return await updateWithRetry('organization_members', {
+          is_active: true,
+          updated_at: new Date().toISOString()
+        }, { umbler_member_id: memberData.Id });
+      } else {
+        // Criar novo membro
+        return await insertWithRetry('organization_members', {
+          umbler_member_id: memberData.Id,
+          name: 'Agente Umbler', // Nome padrão
+          is_active: true,
+          metadata: {
+            source: 'umbler_webhook',
+            created_at: new Date().toISOString()
+          }
+        });
+      }
+    } catch (error) {
+      logger.error('Erro ao processar membro da organização:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Processar tags do contato
+   */
+  async _processContactTags(contactId, tags) {
+    try {
+      for (const tag of tags) {
+        await insertWithRetry('contact_tags', {
+          contact_id: contactId,
+          umbler_tag_id: tag.Id,
+          tag_name: tag.Name
+        });
+      }
+    } catch (error) {
+      logger.error('Erro ao processar tags do contato:', error);
+    }
+  }
+  
+  /**
    * Registrar evento de webhook para auditoria
    */
   async logWebhookEvent(eventData) {
     try {
-      const { data, error } = await supabaseAdmin
-        .from('webhook_events')
-        .insert({
-          id: uuidv4(),
-          event_type: eventData.eventType,
-          event_data: eventData.eventData,
-          processed: eventData.processed || false,
-          source_ip: eventData.sourceIp,
-          user_agent: eventData.userAgent,
-          created_at: new Date().toISOString()
-        })
-        .select()
-        .single();
+      const result = await insertWithRetry('webhook_events', {
+        event_id: eventData.eventData.EventId || uuidv4(),
+        event_type: eventData.eventType,
+        event_date: eventData.eventData.EventDate || new Date().toISOString(),
+        payload: eventData.eventData,
+        processed: eventData.processed || false,
+        source_ip: eventData.sourceIp,
+        user_agent: eventData.userAgent
+      });
       
-      if (error) {
-        logger.error('Erro ao registrar evento de webhook:', error);
-        throw error;
-      }
-      
-      return data.id;
+      return result.id;
     } catch (error) {
       logger.error('Falha ao salvar evento de webhook:', error);
       // Não propagar erro para não interromper o processamento
@@ -294,13 +410,10 @@ class WebhookService {
     if (!eventId) return;
     
     try {
-      await supabaseAdmin
-        .from('webhook_events')
-        .update({
-          processed: true,
-          processed_at: new Date().toISOString()
-        })
-        .eq('id', eventId);
+      await updateWithRetry('webhook_events', {
+        processed: true,
+        processed_at: new Date().toISOString()
+      }, { id: eventId });
     } catch (error) {
       logger.error('Erro ao marcar evento como processado:', error);
     }
@@ -313,15 +426,12 @@ class WebhookService {
     if (!eventId) return;
     
     try {
-      await supabaseAdmin
-        .from('webhook_events')
-        .update({
-          processed: false,
-          error_message: errorMessage,
-          retry_count: supabaseAdmin.raw('retry_count + 1'),
-          processed_at: new Date().toISOString()
-        })
-        .eq('id', eventId);
+      await updateWithRetry('webhook_events', {
+        processed: false,
+        error_message: errorMessage,
+        retry_count: 'retry_count + 1',
+        processed_at: new Date().toISOString()
+      }, { id: eventId });
     } catch (error) {
       logger.error('Erro ao marcar evento com erro:', error);
     }
@@ -333,16 +443,14 @@ class WebhookService {
   async retryWebhookEvent(eventId) {
     try {
       // Buscar evento
-      const { data: event, error } = await supabaseAdmin
-        .from('webhook_events')
-        .select('*')
-        .eq('id', eventId)
-        .single();
+      const result = await findWithCache('webhook_events', { id: eventId });
       
-      if (error || !event) {
+      if (result.data.length === 0) {
         logger.warn('Evento não encontrado para retry:', { eventId });
         return null;
       }
+      
+      const event = result.data[0];
       
       if (event.processed) {
         logger.warn('Evento já foi processado:', { eventId });
@@ -355,14 +463,14 @@ class WebhookService {
       }
       
       // Tentar processar novamente
-      const result = await this.processWebhook(event.event_data, eventId);
+      const processResult = await this.processWebhook(event.payload, eventId);
       
       // Marcar como processado se sucesso
-      if (result.processed) {
+      if (processResult.processed) {
         await this.markEventAsProcessed(eventId);
       }
       
-      return result;
+      return processResult;
       
     } catch (error) {
       await this.markEventAsError(eventId, error.message);
@@ -375,44 +483,58 @@ class WebhookService {
    */
   async getWebhookEvents({ page = 1, limit = 50, filters = {} }) {
     try {
-      let query = supabaseAdmin
-        .from('webhook_events')
-        .select('*', { count: 'exact' });
+      let whereConditions = [];
+      let params = [];
+      let paramIndex = 1;
       
       // Aplicar filtros
       if (filters.eventType) {
-        query = query.eq('event_type', filters.eventType);
+        whereConditions.push(`event_type = $${paramIndex++}`);
+        params.push(filters.eventType);
       }
       
       if (filters.processed !== undefined) {
-        query = query.eq('processed', filters.processed);
+        whereConditions.push(`processed = $${paramIndex++}`);
+        params.push(filters.processed);
       }
       
       if (filters.startDate) {
-        query = query.gte('created_at', filters.startDate);
+        whereConditions.push(`created_at >= $${paramIndex++}`);
+        params.push(filters.startDate);
       }
       
       if (filters.endDate) {
-        query = query.lte('created_at', filters.endDate);
+        whereConditions.push(`created_at <= $${paramIndex++}`);
+        params.push(filters.endDate);
       }
       
-      // Paginação
-      const from = (page - 1) * limit;
-      const to = from + limit - 1;
+      const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
       
-      query = query
-        .range(from, to)
-        .order('created_at', { ascending: false });
+      // Query para contar total
+      const countQuery = `
+        SELECT COUNT(*) as total
+        FROM webhook_events
+        ${whereClause}
+      `;
       
-      const { data, error, count } = await query;
+      const countResult = await executeQuery(countQuery, params);
+      const total = parseInt(countResult[0].total);
       
-      if (error) {
-        throw error;
-      }
+      // Query para buscar dados com paginação
+      const offset = (page - 1) * limit;
+      const dataQuery = `
+        SELECT *
+        FROM webhook_events
+        ${whereClause}
+        ORDER BY created_at DESC
+        LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+      `;
+      
+      const dataResult = await executeQuery(dataQuery, [...params, limit, offset]);
       
       return {
-        events: data,
-        total: count
+        events: dataResult,
+        total: total
       };
       
     } catch (error) {
@@ -435,16 +557,36 @@ class WebhookService {
       
       const intervalString = periodMap[period] || '24 hours';
       
-      const { data, error } = await supabaseAdmin.rpc('get_webhook_stats', {
-        period_interval: intervalString
-      });
+      const query = `
+        SELECT 
+          COUNT(*) as total_events,
+          COUNT(*) FILTER (WHERE processed = true) as processed_events,
+          COUNT(*) FILTER (WHERE processed = false) as failed_events,
+          jsonb_object_agg(event_type, count) as events_by_type
+        FROM (
+          SELECT 
+            event_type,
+            COUNT(*) as count
+          FROM webhook_events 
+          WHERE created_at >= NOW() - INTERVAL '${intervalString}'
+          GROUP BY event_type
+        ) type_counts,
+        webhook_events we
+        WHERE we.created_at >= NOW() - INTERVAL '${intervalString}'
+      `;
       
-      if (error) {
-        // Se a função não existir, calcular manualmente
-        return await this._calculateWebhookStatsManually(period);
+      const result = await executeQuery(query);
+      
+      if (result.length === 0) {
+        return {
+          total_events: 0,
+          processed_events: 0,
+          failed_events: 0,
+          events_by_type: {}
+        };
       }
       
-      return data;
+      return result[0];
       
     } catch (error) {
       logger.error('Erro ao obter estatísticas:', error);
@@ -459,23 +601,24 @@ class WebhookService {
     const hours = { '1h': 1, '24h': 24, '7d': 168, '30d': 720 }[period] || 24;
     const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
     
-    const { data, error } = await supabaseAdmin
-      .from('webhook_events')
-      .select('event_type, processed, created_at')
-      .gte('created_at', since);
+    const query = `
+      SELECT event_type, processed, created_at
+      FROM webhook_events
+      WHERE created_at >= $1
+    `;
     
-    if (error) throw error;
+    const data = await executeQuery(query, [since]);
     
     const stats = {
-      total: data.length,
-      processed: data.filter(e => e.processed).length,
-      failed: data.filter(e => !e.processed).length,
-      byType: {}
+      total_events: data.length,
+      processed_events: data.filter(e => e.processed).length,
+      failed_events: data.filter(e => !e.processed).length,
+      events_by_type: {}
     };
     
     // Contar por tipo
     data.forEach(event => {
-      stats.byType[event.event_type] = (stats.byType[event.event_type] || 0) + 1;
+      stats.events_by_type[event.event_type] = (stats.events_by_type[event.event_type] || 0) + 1;
     });
     
     return stats;
@@ -489,7 +632,19 @@ class WebhookService {
       throw new Error('Payload inválido: deve ser um objeto');
     }
     
-    // Validações específicas podem ser adicionadas aqui
+    // Validações específicas para payload da Umbler
+    if (!payload.Type) {
+      throw new Error('Payload inválido: campo Type é obrigatório');
+    }
+    
+    if (!payload.EventDate) {
+      throw new Error('Payload inválido: campo EventDate é obrigatório');
+    }
+    
+    if (!payload.Payload) {
+      throw new Error('Payload inválido: campo Payload é obrigatório');
+    }
+    
     return true;
   }
   
@@ -498,21 +653,21 @@ class WebhookService {
    */
   _inferEventType(payload) {
     // Para payload da Umbler
-    if (payload.Type === 'Message') return 'message.received';
-    if (payload.Type === 'Conversation') return 'conversation.updated';
-    if (payload.Type === 'Contact') return 'contact.updated';
+    if (payload.Type === 'Message') return 'Message';
+    if (payload.Type === 'Conversation') return 'Conversation';
+    if (payload.Type === 'Contact') return 'Contact';
     
     // Fallback para outros formatos
     if (payload.message && payload.contact) {
-      return 'message.received';
+      return 'Message';
     }
     
     if (payload.conversation) {
-      return 'conversation.updated';
+      return 'Conversation';
     }
     
     if (payload.contact) {
-      return 'contact.updated';
+      return 'Contact';
     }
     
     return 'unknown';

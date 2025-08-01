@@ -1,73 +1,82 @@
-const { createClient } = require('@supabase/supabase-js');
+const { Pool } = require('pg');
 const { environment } = require('./environment');
 const logger = require('../utils/logger');
 
 /**
- * Configuração e inicialização do cliente Supabase
+ * Configuração e inicialização do cliente PostgreSQL (Neon)
  */
 
-// Cliente principal com chave anônima (para operações normais)
-const supabaseClient = createClient(
-  environment.supabase.url,
-  environment.supabase.anonKey,
-  {
-    ...environment.supabase.options,
-    db: {
-      schema: 'public'
-    }
-  }
-);
+// Configuração do pool de conexões
+const poolConfig = {
+  connectionString: environment.database.url,
+  ssl: environment.database.ssl,
+  max: environment.database.maxConnections || 20,
+  idleTimeoutMillis: environment.database.idleTimeout || 30000,
+  connectionTimeoutMillis: environment.database.connectionTimeout || 2000,
+  acquireTimeoutMillis: environment.database.acquireTimeout || 2000,
+  reapIntervalMillis: environment.database.reapInterval || 1000,
+  createTimeoutMillis: environment.database.createTimeout || 3000,
+  destroyTimeoutMillis: environment.database.destroyTimeout || 5000,
+  allowExitOnIdle: true,
+  // Configurações específicas para Neon
+  application_name: 'umbler-webhook-backend',
+  statement_timeout: 30000, // 30 segundos
+  query_timeout: 30000,
+  idle_in_transaction_session_timeout: 30000
+};
 
-// Cliente administrativo com service role (para operações privilegiadas)
-const supabaseAdmin = createClient(
-  environment.supabase.url,
-  environment.supabase.serviceRoleKey,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    },
-    db: {
-      schema: 'public'
-    }
-  }
-);
+// Criar pool de conexões
+const pool = new Pool(poolConfig);
+
+// Event listeners para monitoramento do pool
+pool.on('connect', (client) => {
+  logger.info('🔗 Nova conexão PostgreSQL estabelecida');
+});
+
+pool.on('acquire', (client) => {
+  logger.debug('📥 Cliente adquirido do pool');
+});
+
+pool.on('release', (client) => {
+  logger.debug('📤 Cliente liberado para o pool');
+});
+
+pool.on('error', (err, client) => {
+  logger.error('❌ Erro no pool PostgreSQL:', err);
+});
+
+pool.on('remove', (client) => {
+  logger.info('🗑️ Cliente removido do pool');
+});
 
 /**
  * Teste de conexão com o banco de dados
  */
 async function testConnection() {
   try {
-    // Em desenvolvimento, permitir funcionamento sem Supabase real
+    // Em desenvolvimento, permitir funcionamento sem PostgreSQL real
     if (environment.isDevelopment() && process.env.SKIP_DB_CONNECTION === 'true') {
-      logger.warn('⚠️ Modo desenvolvimento: Pulando verificação de conexão com Supabase');
+      logger.warn('⚠️ Modo desenvolvimento: Pulando verificação de conexão com PostgreSQL');
       return true;
     }
 
-    const { data, error } = await supabaseClient
-      .from('contacts')
-      .select('count')
-      .limit(1);
-    
-    if (error) {
-      logger.error('Erro ao testar conexão com Supabase:', error);
-      
-      // Em desenvolvimento, permitir continuar mesmo com erro de conexão
-      if (environment.isDevelopment()) {
-        logger.warn('⚠️ Modo desenvolvimento: Continuando sem conexão com Supabase');
-        return true;
-      }
-      return false;
+    const client = await pool.connect();
+    try {
+      const result = await client.query('SELECT NOW() as current_time, version() as version');
+      logger.info('✅ Conexão com PostgreSQL estabelecida com sucesso', {
+        currentTime: result.rows[0].current_time,
+        version: result.rows[0].version.split(' ')[0] // Apenas a versão
+      });
+      return true;
+    } finally {
+      client.release();
     }
-    
-    logger.info('✅ Conexão com Supabase estabelecida com sucesso');
-    return true;
   } catch (error) {
-    logger.error('Erro ao conectar com Supabase:', error);
+    logger.error('Erro ao conectar com PostgreSQL:', error);
     
     // Em desenvolvimento, permitir continuar mesmo com erro de conexão
     if (environment.isDevelopment()) {
-      logger.warn('⚠️ Modo desenvolvimento: Continuando sem conexão com Supabase');
+      logger.warn('⚠️ Modo desenvolvimento: Continuando sem conexão com PostgreSQL');
       return true;
     }
     return false;
@@ -78,21 +87,15 @@ async function testConnection() {
  * Executar query personalizada
  */
 async function executeQuery(query, params = []) {
+  const client = await pool.connect();
   try {
-    const { data, error } = await supabaseAdmin.rpc('execute_sql', {
-      query,
-      params
-    });
-    
-    if (error) {
-      logger.error('Erro ao executar query:', error);
-      throw error;
-    }
-    
-    return data;
+    const result = await client.query(query, params);
+    return result.rows;
   } catch (error) {
-    logger.error('Erro na execução da query:', error);
+    logger.error('Erro ao executar query:', error);
     throw error;
+  } finally {
+    client.release();
   }
 }
 
@@ -110,30 +113,29 @@ async function insertWithRetry(table, data, maxRetries = 3) {
         attempt: attempt + 1
       });
       
-      const { data: result, error } = await supabaseAdmin
-        .from(table)
-        .insert(data)
-        .select()
-        .single();
+      const columns = Object.keys(data);
+      const values = Object.values(data);
+      const placeholders = values.map((_, index) => `$${index + 1}`).join(', ');
       
-      if (error) {
-        logger.error(`❌ Erro na inserção em "${table}":`, {
-          error: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
-          data: data
-        });
-        throw error;
+      const query = `
+        INSERT INTO ${table} (${columns.join(', ')})
+        VALUES (${placeholders})
+        RETURNING *
+      `;
+      
+      const result = await executeQuery(query, values);
+      
+      if (result.length === 0) {
+        throw new Error('Nenhum registro inserido');
       }
       
       logger.info(`✅ Inserção em "${table}" realizada com sucesso`, {
         table,
-        insertedId: result.id,
+        insertedId: result[0].id,
         attempt: attempt + 1
       });
       
-      return result;
+      return result[0];
     } catch (error) {
       attempt++;
       logger.warn(`⚠️ Tentativa ${attempt} de inserção em "${table}" falhou:`, {
@@ -146,9 +148,6 @@ async function insertWithRetry(table, data, maxRetries = 3) {
       if (attempt >= maxRetries) {
         logger.error(`❌ Falha definitiva na inserção em "${table}" após ${maxRetries} tentativas:`, {
           error: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
           data: data
         });
         throw error;
@@ -175,34 +174,34 @@ async function updateWithRetry(table, data, filter, maxRetries = 3) {
         attempt: attempt + 1
       });
       
-      let query = supabaseAdmin.from(table).update(data);
+      const setColumns = Object.keys(data);
+      const setValues = Object.values(data);
+      const whereColumns = Object.keys(filter);
+      const whereValues = Object.values(filter);
       
-      // Aplicar filtros
-      Object.entries(filter).forEach(([key, value]) => {
-        query = query.eq(key, value);
-      });
+      const setClause = setColumns.map((col, index) => `${col} = $${index + 1}`).join(', ');
+      const whereClause = whereColumns.map((col, index) => `${col} = $${setValues.length + index + 1}`).join(' AND ');
       
-      const { data: result, error } = await query.select().single();
+      const query = `
+        UPDATE ${table}
+        SET ${setClause}
+        WHERE ${whereClause}
+        RETURNING *
+      `;
       
-      if (error) {
-        logger.error(`❌ Erro na atualização em "${table}":`, {
-          error: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
-          data: data,
-          filter: filter
-        });
-        throw error;
+      const result = await executeQuery(query, [...setValues, ...whereValues]);
+      
+      if (result.length === 0) {
+        throw new Error('Nenhum registro atualizado');
       }
       
       logger.info(`✅ Atualização em "${table}" realizada com sucesso`, {
         table,
-        updatedId: result.id,
+        updatedId: result[0].id,
         attempt: attempt + 1
       });
       
-      return result;
+      return result[0];
     } catch (error) {
       attempt++;
       logger.warn(`⚠️ Tentativa ${attempt} de atualização em "${table}" falhou:`, {
@@ -215,9 +214,6 @@ async function updateWithRetry(table, data, filter, maxRetries = 3) {
       if (attempt >= maxRetries) {
         logger.error(`❌ Falha definitiva na atualização em "${table}" após ${maxRetries} tentativas:`, {
           error: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
           data: data,
           filter: filter
         });
@@ -235,41 +231,46 @@ async function updateWithRetry(table, data, filter, maxRetries = 3) {
  */
 async function findWithCache(table, filter = {}, options = {}) {
   try {
-    let query = supabaseClient.from(table).select(options.select || '*');
+    const whereColumns = Object.keys(filter);
+    const whereValues = Object.values(filter);
+    
+    let query = `SELECT ${options.select || '*'} FROM ${table}`;
+    const params = [];
     
     // Aplicar filtros
-    Object.entries(filter).forEach(([key, value]) => {
-      if (Array.isArray(value)) {
-        query = query.in(key, value);
-      } else {
-        query = query.eq(key, value);
-      }
-    });
+    if (whereColumns.length > 0) {
+      const whereClause = whereColumns.map((col, index) => {
+        if (Array.isArray(filter[col])) {
+          const placeholders = filter[col].map((_, i) => `$${params.length + i + 1}`).join(', ');
+          params.push(...filter[col]);
+          return `${col} IN (${placeholders})`;
+        } else {
+          params.push(filter[col]);
+          return `${col} = $${params.length}`;
+        }
+      }).join(' AND ');
+      query += ` WHERE ${whereClause}`;
+    }
     
     // Aplicar ordenação
     if (options.orderBy) {
-      query = query.order(options.orderBy.column, { 
-        ascending: options.orderBy.ascending !== false 
-      });
+      const direction = options.orderBy.ascending !== false ? 'ASC' : 'DESC';
+      query += ` ORDER BY ${options.orderBy.column} ${direction}`;
     }
     
     // Aplicar limite
     if (options.limit) {
-      query = query.limit(options.limit);
+      query += ` LIMIT ${options.limit}`;
     }
     
-    // Aplicar range para paginação
-    if (options.range) {
-      query = query.range(options.range.from, options.range.to);
+    // Aplicar offset para paginação
+    if (options.offset) {
+      query += ` OFFSET ${options.offset}`;
     }
     
-    const { data, error, count } = await query;
+    const result = await executeQuery(query, params);
     
-    if (error) {
-      throw error;
-    }
-    
-    return { data, count };
+    return { data: result, count: result.length };
   } catch (error) {
     logger.error('Erro ao buscar dados:', error);
     throw error;
@@ -280,14 +281,14 @@ async function findWithCache(table, filter = {}, options = {}) {
  * Função para executar transação
  */
 async function executeTransaction(operations) {
-  // Nota: Supabase não suporta transações explícitas via client
-  // Para operações críticas, use stored procedures ou RPC
+  const client = await pool.connect();
   
-  const results = [];
-  const errors = [];
-  
-  for (const operation of operations) {
-    try {
+  try {
+    await client.query('BEGIN');
+    
+    const results = [];
+    
+    for (const operation of operations) {
       let result;
       
       switch (operation.type) {
@@ -298,30 +299,35 @@ async function executeTransaction(operations) {
           result = await updateWithRetry(operation.table, operation.data, operation.filter);
           break;
         case 'delete':
-          const { data, error } = await supabaseAdmin
-            .from(operation.table)
-            .delete()
-            .match(operation.filter)
-            .select();
-          if (error) throw error;
-          result = data;
+          const whereColumns = Object.keys(operation.filter);
+          const whereValues = Object.values(operation.filter);
+          const whereClause = whereColumns.map((col, index) => `${col} = $${index + 1}`).join(' AND ');
+          
+          const deleteQuery = `
+            DELETE FROM ${operation.table}
+            WHERE ${whereClause}
+            RETURNING *
+          `;
+          
+          result = await client.query(deleteQuery, whereValues);
+          result = result.rows;
           break;
         default:
           throw new Error(`Tipo de operação não suportada: ${operation.type}`);
       }
       
       results.push(result);
-    } catch (error) {
-      errors.push({ operation, error });
-      logger.error('Erro na operação da transação:', error);
     }
+    
+    await client.query('COMMIT');
+    return results;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logger.error('Erro na transação:', error);
+    throw error;
+  } finally {
+    client.release();
   }
-  
-  if (errors.length > 0) {
-    throw new Error(`Transação falhou: ${errors.length} operações com erro`);
-  }
-  
-  return results;
 }
 
 /**
@@ -332,22 +338,114 @@ async function cleanupOldData() {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     
     // Limpar eventos de webhook antigos processados
-    const { error: webhookError } = await supabaseAdmin
-      .from('webhook_events')
-      .delete()
-      .eq('processed', true)
-      .lt('created_at', thirtyDaysAgo);
+    const deleteWebhookQuery = `
+      DELETE FROM webhook_events 
+      WHERE processed = true AND created_at < $1
+    `;
     
-    if (webhookError) {
-      logger.error('Erro ao limpar eventos de webhook:', webhookError);
-    } else {
-      logger.info('Limpeza de eventos de webhook antigos concluída');
+    const webhookResult = await executeQuery(deleteWebhookQuery, [thirtyDaysAgo]);
+    logger.info(`Limpeza de eventos de webhook antigos concluída: ${webhookResult.length} registros removidos`);
+    
+    // Limpar mensagens antigas (opcional - manter histórico)
+    if (environment.isProduction()) {
+      const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
+      const deleteMessagesQuery = `
+        DELETE FROM messages 
+        WHERE event_at_utc < $1 AND message_type = 'text'
+      `;
+      
+      const messagesResult = await executeQuery(deleteMessagesQuery, [oneYearAgo]);
+      logger.info(`Limpeza de mensagens antigas concluída: ${messagesResult.length} registros removidos`);
     }
-    
-    // Outras limpezas podem ser adicionadas aqui
     
   } catch (error) {
     logger.error('Erro na limpeza de dados antigos:', error);
+  }
+}
+
+/**
+ * Função para backup dos dados
+ */
+async function backupDatabase() {
+  try {
+    logger.info('🔄 Iniciando backup do banco de dados...');
+    
+    // Backup das tabelas principais
+    const tables = [
+      'webhook_events',
+      'contacts', 
+      'contact_tags',
+      'channels',
+      'sectors',
+      'organization_members',
+      'chats',
+      'messages',
+      'message_reactions',
+      'chat_assignments',
+      'performance_metrics'
+    ];
+    
+    const backupData = {};
+    
+    for (const table of tables) {
+      const result = await executeQuery(`SELECT * FROM ${table} ORDER BY created_at DESC LIMIT 1000`);
+      backupData[table] = result;
+      logger.info(`✅ Backup da tabela ${table}: ${result.length} registros`);
+    }
+    
+    return backupData;
+  } catch (error) {
+    logger.error('Erro no backup do banco:', error);
+    throw error;
+  }
+}
+
+/**
+ * Função para health check do banco
+ */
+async function healthCheck() {
+  try {
+    const client = await pool.connect();
+    try {
+      // Verificar conexão
+      await client.query('SELECT 1');
+      
+      // Verificar estatísticas do pool
+      const poolStats = {
+        totalCount: pool.totalCount,
+        idleCount: pool.idleCount,
+        waitingCount: pool.waitingCount
+      };
+      
+      // Verificar tabelas principais
+      const tablesCheck = await client.query(`
+        SELECT 
+          schemaname,
+          tablename,
+          n_tup_ins as inserts,
+          n_tup_upd as updates,
+          n_tup_del as deletes
+        FROM pg_stat_user_tables 
+        WHERE tablename IN ('webhook_events', 'contacts', 'chats', 'messages')
+        ORDER BY tablename
+      `);
+      
+      return {
+        status: 'healthy',
+        pool: poolStats,
+        tables: tablesCheck.rows,
+        timestamp: new Date().toISOString()
+      };
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    logger.error('Health check falhou:', error);
+    return {
+      status: 'unhealthy',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    };
   }
 }
 
@@ -356,11 +454,23 @@ async function cleanupOldData() {
  */
 async function initializeDatabase() {
   try {
-    logger.info('🔄 Inicializando conexão com o banco de dados...');
+    logger.info('🔄 Inicializando conexão com o banco de dados PostgreSQL...');
     
     const isConnected = await testConnection();
     if (!isConnected) {
-      throw new Error('Falha ao conectar com o banco de dados');
+      throw new Error('Falha ao conectar com o banco de dados PostgreSQL');
+    }
+    
+    // Verificar se as tabelas existem
+    const tablesCheck = await executeQuery(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_name IN ('webhook_events', 'contacts', 'chats', 'messages')
+    `);
+    
+    if (tablesCheck.length < 4) {
+      logger.warn('⚠️ Algumas tabelas não foram encontradas. Execute o setup do banco.');
     }
     
     // Executar limpeza de dados em produção
@@ -368,11 +478,23 @@ async function initializeDatabase() {
       await cleanupOldData();
     }
     
-    logger.info('✅ Banco de dados inicializado com sucesso');
+    logger.info('✅ Banco de dados PostgreSQL inicializado com sucesso');
     return true;
   } catch (error) {
-    logger.error('❌ Falha na inicialização do banco de dados:', error);
+    logger.error('❌ Falha na inicialização do banco de dados PostgreSQL:', error);
     throw error;
+  }
+}
+
+/**
+ * Fechar pool de conexões
+ */
+async function closePool() {
+  try {
+    await pool.end();
+    logger.info('🔌 Pool de conexões PostgreSQL fechado');
+  } catch (error) {
+    logger.error('Erro ao fechar pool:', error);
   }
 }
 
@@ -386,9 +508,21 @@ if (require.main !== module) {
   });
 }
 
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  logger.info('SIGINT received, fechando pool de conexões...');
+  await closePool();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  logger.info('SIGTERM received, fechando pool de conexões...');
+  await closePool();
+  process.exit(0);
+});
+
 module.exports = {
-  supabaseClient,
-  supabaseAdmin,
+  pool,
   testConnection,
   executeQuery,
   insertWithRetry,
@@ -396,5 +530,8 @@ module.exports = {
   findWithCache,
   executeTransaction,
   cleanupOldData,
-  initializeDatabase
+  backupDatabase,
+  healthCheck,
+  initializeDatabase,
+  closePool
 };
