@@ -104,6 +104,12 @@ async function insertWithRetry(table, data, maxRetries = 3) {
   
   while (attempt < maxRetries) {
     try {
+      logger.info(`💾 Tentando inserir em "${table}" (tentativa ${attempt + 1}/${maxRetries})`, {
+        table,
+        dataKeys: Object.keys(data),
+        attempt: attempt + 1
+      });
+      
       const { data: result, error } = await supabaseAdmin
         .from(table)
         .insert(data)
@@ -111,16 +117,40 @@ async function insertWithRetry(table, data, maxRetries = 3) {
         .single();
       
       if (error) {
+        logger.error(`❌ Erro na inserção em "${table}":`, {
+          error: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          data: data
+        });
         throw error;
       }
+      
+      logger.info(`✅ Inserção em "${table}" realizada com sucesso`, {
+        table,
+        insertedId: result.id,
+        attempt: attempt + 1
+      });
       
       return result;
     } catch (error) {
       attempt++;
-      logger.warn(`Tentativa ${attempt} de inserção falhou:`, error.message);
+      logger.warn(`⚠️ Tentativa ${attempt} de inserção em "${table}" falhou:`, {
+        error: error.message,
+        attempt,
+        maxRetries,
+        willRetry: attempt < maxRetries
+      });
       
       if (attempt >= maxRetries) {
-        logger.error(`Falha na inserção após ${maxRetries} tentativas:`, error);
+        logger.error(`❌ Falha definitiva na inserção em "${table}" após ${maxRetries} tentativas:`, {
+          error: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          data: data
+        });
         throw error;
       }
       
@@ -138,6 +168,13 @@ async function updateWithRetry(table, data, filter, maxRetries = 3) {
   
   while (attempt < maxRetries) {
     try {
+      logger.info(`🔄 Tentando atualizar em "${table}" (tentativa ${attempt + 1}/${maxRetries})`, {
+        table,
+        dataKeys: Object.keys(data),
+        filter,
+        attempt: attempt + 1
+      });
+      
       let query = supabaseAdmin.from(table).update(data);
       
       // Aplicar filtros
@@ -148,16 +185,42 @@ async function updateWithRetry(table, data, filter, maxRetries = 3) {
       const { data: result, error } = await query.select().single();
       
       if (error) {
+        logger.error(`❌ Erro na atualização em "${table}":`, {
+          error: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          data: data,
+          filter: filter
+        });
         throw error;
       }
+      
+      logger.info(`✅ Atualização em "${table}" realizada com sucesso`, {
+        table,
+        updatedId: result.id,
+        attempt: attempt + 1
+      });
       
       return result;
     } catch (error) {
       attempt++;
-      logger.warn(`Tentativa ${attempt} de atualização falhou:`, error.message);
+      logger.warn(`⚠️ Tentativa ${attempt} de atualização em "${table}" falhou:`, {
+        error: error.message,
+        attempt,
+        maxRetries,
+        willRetry: attempt < maxRetries
+      });
       
       if (attempt >= maxRetries) {
-        logger.error(`Falha na atualização após ${maxRetries} tentativas:`, error);
+        logger.error(`❌ Falha definitiva na atualização em "${table}" após ${maxRetries} tentativas:`, {
+          error: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          data: data,
+          filter: filter
+        });
         throw error;
       }
       

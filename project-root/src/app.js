@@ -17,6 +17,7 @@ const webhookRoutes = require('./routes/webhook');
 const contactRoutes = require('./routes/contacts');
 const messageRoutes = require('./routes/messages');
 const conversationRoutes = require('./routes/conversations');
+const dashboardRoutes = require('./routes/dashboard');
 const apiRoutes = require('./routes/api');
 require('dotenv').config();
 
@@ -216,6 +217,7 @@ app.use('/webhook', webhookLimiter);
 
 // Registrar rotas
 app.use('/webhook', webhookRoutes);
+app.use('/api/dashboard', dashboardRoutes); // Dashboard routes
 app.use('/api', apiRoutes); // API routes for dashboard
 
 // =============================================
