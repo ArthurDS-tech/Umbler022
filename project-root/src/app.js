@@ -216,10 +216,7 @@ app.use('/webhook', webhookLimiter);
 
 // Registrar rotas
 app.use('/webhook', webhookRoutes);
-app.use('/api/contacts', contactRoutes);
-app.use('/api/messages', messageRoutes);
-app.use('/api/conversations', conversationRoutes);
-app.use('/api', apiRoutes);
+app.use('/api', apiRoutes); // API routes for dashboard
 
 // =============================================
 // ROTA RAIZ
