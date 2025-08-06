@@ -33,14 +33,19 @@ async function setupSupabaseComplete() {
 
     console.log('🔗 Conectando com Supabase...');
     
-    // Testar conexão
-    const { data: testData, error: testError } = await supabase
-      .from('information_schema.tables')
-      .select('table_name')
-      .limit(1);
-
-    if (testError && !testError.message.includes('does not exist')) {
-      console.log('❌ Erro ao conectar com Supabase:', testError.message);
+    // Testar conexão básica
+    try {
+      // Tentar uma operação simples para testar credenciais
+      const { error: testError } = await supabase.auth.getSession();
+      
+      if (testError && testError.message.includes('Invalid API key')) {
+        console.log('❌ Erro: Credenciais inválidas do Supabase');
+        console.log('Verifique se SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY estão corretos no .env');
+        process.exit(1);
+      }
+    } catch (error) {
+      console.log('❌ Erro ao conectar com Supabase:', error.message);
+      console.log('Verifique se as credenciais estão corretas no arquivo .env');
       process.exit(1);
     }
 
@@ -256,31 +261,37 @@ CREATE INDEX IF NOT EXISTS idx_contact_tags_tag_name ON contact_tags(tag_name);
       console.log('✅ Tabelas criadas com sucesso!');
     }
 
-    // Verificar se as tabelas foram criadas
-    console.log('\n🔍 Verificando tabelas criadas...');
-    const { data: tables, error: tablesError } = await supabase
-      .from('information_schema.tables')
-      .select('table_name')
-      .eq('table_schema', 'public')
-      .in('table_name', [
-        'webhook_events',
-        'contacts', 
-        'contact_tags',
-        'channels',
-        'sectors',
-        'organization_members',
-        'chats',
-        'messages',
-        'message_reactions'
-      ]);
-
-    if (tablesError) {
-      console.log('⚠️ Não foi possível verificar tabelas:', tablesError.message);
-    } else {
-      console.log(`✅ ${tables.length} tabelas encontradas:`);
-      tables.forEach(table => {
-        console.log(`  - ${table.table_name}`);
-      });
+    // Verificar se as tabelas foram criadas testando inserção
+    console.log('\n🔍 Verificando se as tabelas foram criadas...');
+    
+    const expectedTables = [
+      'webhook_events', 'contacts', 'contact_tags', 'channels',
+      'sectors', 'organization_members', 'chats', 'messages', 'message_reactions'
+    ];
+    
+    let tablesCreated = 0;
+    for (const tableName of expectedTables) {
+      try {
+        const { error } = await supabase
+          .from(tableName)
+          .select('*')
+          .limit(1);
+        
+        if (!error) {
+          console.log(`  ✅ ${tableName}`);
+          tablesCreated++;
+        } else {
+          console.log(`  ❌ ${tableName} - ${error.message}`);
+        }
+      } catch (error) {
+        console.log(`  ❌ ${tableName} - Erro: ${error.message}`);
+      }
+    }
+    
+    console.log(`\n📊 ${tablesCreated}/${expectedTables.length} tabelas criadas com sucesso`);
+    
+    if (tablesCreated < expectedTables.length) {
+      console.log('⚠️ Algumas tabelas não foram criadas. Isso pode ser normal se for a primeira execução.');
     }
 
     // Testar inserção de dados
