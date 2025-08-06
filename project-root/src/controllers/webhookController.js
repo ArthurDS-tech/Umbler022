@@ -20,6 +20,16 @@ class WebhookController {
       const userAgent = headers['user-agent'] || '';
       
       // Log da requisição recebida
+      console.log('\n🎯 ===== WEBHOOK RECEBIDO DA UMBLER =====');
+      console.log('📅 Data/Hora:', new Date().toLocaleString('pt-BR'));
+      console.log('🌐 IP:', ip);
+      console.log('📱 User Agent:', userAgent);
+      console.log('📦 Tamanho do Body:', JSON.stringify(body).length, 'bytes');
+      console.log('🔐 Signature:', headers['x-umbler-signature'] || 'não informado');
+      console.log('📋 Payload Completo:');
+      console.log(JSON.stringify(body, null, 2));
+      console.log('=====================================\n');
+      
       logger.info('📥 Webhook recebido da Umbler', {
         ip,
         userAgent,
@@ -73,6 +83,15 @@ class WebhookController {
       const processingTime = Date.now() - startTime;
       
       // Log de sucesso
+      console.log('\n🎉 ===== WEBHOOK PROCESSADO COM SUCESSO =====');
+      console.log('⏱️ Tempo de processamento:', processingTime + 'ms');
+      console.log('📝 Tipo de evento:', result.eventType);
+      console.log('👤 ID do Contato:', result.contactId);
+      console.log('💬 ID da Conversa:', result.conversationId);
+      console.log('📨 ID da Mensagem:', result.messageId);
+      console.log('💾 Salvo no Supabase com sucesso!');
+      console.log('===========================================\n');
+      
       logger.info('✅ Webhook processado com sucesso', {
         webhookEventId,
         processingTime: `${processingTime}ms`,

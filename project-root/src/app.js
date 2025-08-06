@@ -72,19 +72,18 @@ app.use(helmet({
   }
 }));
 
-// CORS configurado
+// CORS configurado para aceitar qualquer origem (ngrok, etc)
 app.use(cors({
-  origin: environment.cors.origin,
+  origin: true, // Aceita qualquer origem (incluindo ngrok)
   credentials: environment.cors.credentials,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'ngrok-skip-browser-warning']
 }));
 
 // Compressão de responses
 app.use(compression());
 
-// Servir arquivos estáticos
-app.use(express.static(path.join(__dirname, '../public')));
+// Frontend removido - apenas backend/API
 
 // Rate limiting global
 const globalLimiter = rateLimit({
@@ -211,9 +210,8 @@ app.get('/health/detailed', async (req, res) => {
 // Aplicar rate limiting específico para webhooks
 app.use('/webhook', webhookLimiter);
 
-// Registrar rotas (APENAS BACKEND)
+// Registrar rotas (APENAS BACKEND - SEM FRONTEND)
 app.use('/webhook', webhookRoutes);
-app.use('/api', apiRoutes); // API routes para dados
 
 // =============================================
 // ROTA RAIZ
@@ -221,14 +219,21 @@ app.use('/api', apiRoutes); // API routes para dados
 
 app.get('/', (req, res) => {
   res.json({
-    message: 'Webhook Umbler API - Backend Funcionando',
+    message: 'Webhook Umbler → Supabase',
     version: '1.0.0',
+    status: 'ATIVO - Recebendo webhooks da Umbler',
     endpoints: {
       webhook: '/webhook/umbler',
-      health: '/health',
-      api: '/api'
+      test: '/webhook/test',
+      health: '/health'
     },
-    status: 'Backend Only - No Frontend'
+    info: {
+      frontend: 'REMOVIDO',
+      backend: 'ATIVO',
+      database: 'Supabase',
+      logs: 'Terminal + Arquivo'
+    },
+    webhook_url: `${req.protocol}://${req.get('host')}/webhook/umbler`
   });
 });
 

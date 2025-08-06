@@ -34,7 +34,8 @@
         "test:webhook": "node scripts/test-webhook-postgresql.js",
         "test:webhook:auto": "node scripts/test-webhook-postgresql.js --auto",
         "supabase:setup": "node setup-supabase-complete.js",
-        "supabase:test": "node test-webhook-supabase.js"
+        "supabase:test": "node test-webhook-supabase.js",
+        "test:simple": "node test-webhook-simple.js"
     },
     "keywords": [
         "webhook",

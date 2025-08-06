@@ -30,9 +30,9 @@ const environment = {
     bcryptRounds: parseInt(process.env.BCRYPT_ROUNDS) || 12
   },
   
-  // Configurações de CORS
+  // Configurações de CORS (aceita qualquer origem)
   cors: {
-    origin: process.env.CORS_ORIGIN || ['http://localhost:3000', 'http://localhost:3001'],
+    origin: true, // Aceita qualquer origem (ngrok, localhost, etc)
     credentials: process.env.CORS_CREDENTIALS === 'true'
   },
   
