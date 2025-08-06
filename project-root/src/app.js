@@ -14,10 +14,6 @@ const tunnelManager = require('./utils/tunnel');
 
 // Importar rotas
 const webhookRoutes = require('./routes/webhook');
-const contactRoutes = require('./routes/contacts');
-const messageRoutes = require('./routes/messages');
-const conversationRoutes = require('./routes/conversations');
-const dashboardRoutes = require('./routes/dashboard');
 const apiRoutes = require('./routes/api');
 require('dotenv').config();
 
@@ -209,16 +205,15 @@ app.get('/health/detailed', async (req, res) => {
 });
 
 // =============================================
-// ROTAS PRINCIPAIS
+// ROTAS PRINCIPAIS  
 // =============================================
 
 // Aplicar rate limiting específico para webhooks
 app.use('/webhook', webhookLimiter);
 
-// Registrar rotas
+// Registrar rotas (APENAS BACKEND)
 app.use('/webhook', webhookRoutes);
-app.use('/api/dashboard', dashboardRoutes); // Dashboard routes
-app.use('/api', apiRoutes); // API routes for dashboard
+app.use('/api', apiRoutes); // API routes para dados
 
 // =============================================
 // ROTA RAIZ
@@ -226,16 +221,14 @@ app.use('/api', apiRoutes); // API routes for dashboard
 
 app.get('/', (req, res) => {
   res.json({
-    message: 'Webhook Umbler API - Sistema funcionando',
+    message: 'Webhook Umbler API - Backend Funcionando',
     version: '1.0.0',
     endpoints: {
       webhook: '/webhook/umbler',
       health: '/health',
-      contacts: '/api/contacts',
-      messages: '/api/messages',
-      conversations: '/api/conversations'
+      api: '/api'
     },
-    documentation: '/docs'
+    status: 'Backend Only - No Frontend'
   });
 });
 
