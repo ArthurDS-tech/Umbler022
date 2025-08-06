@@ -6,7 +6,7 @@
     "scripts": {
         "start": "node src/app.js",
         "dev": "nodemon src/app.js",
-        "dev:tunnel": "AUTO_START_TUNNEL=true nodemon src/app.js",
+        "dev:tunnel": "set AUTO_START_TUNNEL=true && nodemon src/app.js",
         "test": "jest",
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage",
