@@ -5,7 +5,7 @@ const fs = require('fs');
 const { environment } = require('../config/environment');
 
 // Criar diretório de logs se não existir
-const logsDir = path.dirname(environment.logging.file);
+const logsDir = path.dirname(environment.logging.file || './logs/app.log');
 if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
