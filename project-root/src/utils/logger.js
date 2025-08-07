@@ -5,7 +5,7 @@ const fs = require('fs');
 const { environment } = require('../config/environment');
 
 // Criar diretório de logs se não existir
-const logsDir = environment.paths.logs;
+const logsDir = path.dirname(environment.logging.file);
 if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
@@ -45,7 +45,7 @@ const productionFormat = winston.format.combine(
 const transports = [];
 
 // Console (desenvolvimento)
-if (environment.isDevelopment() || environment.logging.prettyLogs) {
+if (environment.isDevelopment()) {
   transports.push(
     new winston.transports.Console({
       format: developmentFormat,
