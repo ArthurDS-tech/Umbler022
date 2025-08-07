@@ -2,7 +2,7 @@ const { executeQuery, insertWithRetry, updateWithRetry, findWithCache } = requir
 const contactService = require('./contactService');
 const messageService = require('./messageService');
 const conversationService = require('./conversationService');
-const responseTimeService = require('./responseTimeService');
+const agentResponseTimeService = require('./agentResponseTimeService');
 const logger = require('../utils/logger');
 const { v4: uuidv4 } = require('uuid');
 
@@ -162,11 +162,11 @@ class WebhookService {
         await this._processContactTags(contactResult.id, Contact.Tags);
       }
 
-      // 8. Calcular tempo de resposta do cliente
+      // 8. Calcular tempo de resposta do atendente
       try {
-        await responseTimeService.processMessageForResponseTime(payload);
+        await agentResponseTimeService.processMessageForAgentResponseTime(payload);
       } catch (error) {
-        logger.warn('Erro ao calcular tempo de resposta:', error);
+        logger.warn('Erro ao calcular tempo de resposta do atendente:', error);
         // Não interromper o processamento por causa disso
       }
       

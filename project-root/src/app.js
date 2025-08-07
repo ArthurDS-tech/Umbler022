@@ -17,6 +17,7 @@ const webhookRoutes = require('./routes/webhook');
 const contactRoutes = require('./routes/contacts');
 const messageRoutes = require('./routes/messages');
 const conversationRoutes = require('./routes/conversations');
+const agentResponseTimeRoutes = require('./routes/agentResponseTime');
 const dashboardRoutes = require('./routes/dashboard');
 const apiRoutes = require('./routes/api');
 require('dotenv').config();
@@ -99,6 +100,7 @@ const globalLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  trustProxy: true, // Confiar em proxies para obter IP real
   skip: (req) => {
     // Pular rate limit para webhooks da Umbler em desenvolvimento
     return environment.nodeEnv === 'development' && req.path.startsWith('/webhook');
@@ -114,7 +116,8 @@ const webhookLimiter = rateLimit({
   message: {
     error: 'Limite de webhooks excedido',
     code: 'WEBHOOK_RATE_LIMIT_EXCEEDED'
-  }
+  },
+  trustProxy: true // Confiar em proxies para obter IP real
 });
 
 // Trust proxy se configurado (importante para Heroku, Vercel, etc)
@@ -216,6 +219,7 @@ app.use('/webhook', webhookLimiter);
 
 // Registrar rotas
 app.use('/webhook', webhookRoutes);
+app.use('/api/agent-response-time', agentResponseTimeRoutes);
 app.use('/api/dashboard', dashboardRoutes); // Dashboard routes
 app.use('/api', apiRoutes); // API routes for dashboard
 

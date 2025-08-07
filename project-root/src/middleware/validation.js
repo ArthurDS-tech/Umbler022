@@ -182,39 +182,47 @@ const dateFilterSchema = Joi.object({
  */
 const validateWebhookPayload = (req, res, next) => {
   try {
-    const { error, value } = webhookPayloadSchema.validate(req.body, {
-      stripUnknown: true,
+    // Primeiro tentar validar com o novo formato da Umbler
+    const { error: umblerError, value: umblerValue } = umblerWebhookSchema.validate(req.body, {
+      stripUnknown: false,
       convert: true,
-      allowUnknown: true // Permitir campos extras da Umbler
+      allowUnknown: true
     });
     
-    if (error) {
-      logger.warn('Payload do webhook inválido', {
-        error: error.details,
-        body: req.body
-      });
-      
-      return res.status(400).json({
-        success: false,
-        error: 'Payload do webhook inválido',
-        code: 'INVALID_WEBHOOK_PAYLOAD',
-        details: error.details.map(detail => ({
-          field: detail.path.join('.'),
-          message: detail.message,
-          value: detail.context?.value
-        }))
-      });
+    if (!umblerError) {
+      req.validatedBody = umblerValue;
+      return next();
     }
     
-    req.validatedBody = value;
+    // Se falhar, tentar com o formato legado
+    const { error: legacyError, value: legacyValue } = webhookPayloadSchema.validate(req.body, {
+      stripUnknown: true,
+      convert: true,
+      allowUnknown: true
+    });
+    
+    if (!legacyError) {
+      req.validatedBody = legacyValue;
+      return next();
+    }
+    
+    // Se ambos falharem, log do erro mas permitir processamento
+    logger.warn('Payload do webhook não corresponde aos schemas conhecidos - processando mesmo assim', {
+      umblerError: umblerError.details,
+      legacyError: legacyError.details,
+      bodyKeys: Object.keys(req.body || {}),
+      bodyType: req.body?.Type || 'unknown'
+    });
+    
+    // Permitir processamento mesmo com formato desconhecido
+    req.validatedBody = req.body;
     next();
+    
   } catch (validationError) {
     logger.error('Erro na validação do webhook:', validationError);
-    return res.status(500).json({
-      success: false,
-      error: 'Erro interno na validação',
-      code: 'VALIDATION_ERROR'
-    });
+    // Não falhar - permitir processamento
+    req.validatedBody = req.body;
+    next();
   }
 };
 
