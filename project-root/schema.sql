@@ -255,6 +255,29 @@ INSERT INTO message_templates (name, content, variables, category) VALUES
 ('Encerramento', 'Atendimento finalizado. Obrigado pelo contato, {{nome}}!', ARRAY['nome'], 'closing');
 
 -- =============================================
+-- TABELAS CUSTOMIZADAS PARA TEMPO DE RESPOSTA
+-- =============================================
+
+-- Tabela de mensagens recebidas via webhook
+CREATE TABLE IF NOT EXISTS mensagens_webhook (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    telefone TEXT NOT NULL,
+    autor TEXT NOT NULL CHECK (autor IN ('cliente', 'atendente')),
+    mensagem TEXT NOT NULL,
+    data_envio TIMESTAMPTZ NOT NULL,
+    criado_em TIMESTAMP DEFAULT NOW()
+);
+
+-- Tabela de respostas de atendente para cliente
+CREATE TABLE IF NOT EXISTS respostas (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    telefone TEXT NOT NULL,
+    data_cliente TIMESTAMP NOT NULL,
+    data_atendente TIMESTAMP NOT NULL,
+    tempo_resposta_segundos FLOAT NOT NULL
+);
+
+-- =============================================
 -- COMENTÁRIOS FINAIS
 -- =============================================
 
