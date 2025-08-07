@@ -87,8 +87,7 @@ app.use(cors({
 // Compressão de responses
 app.use(compression());
 
-// Servir arquivos estáticos
-app.use(express.static(path.join(__dirname, '../public')));
+// Arquivos estáticos removidos - backend puro
 
 // Rate limiting global
 const globalLimiter = rateLimit({
