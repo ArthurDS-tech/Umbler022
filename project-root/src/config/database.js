@@ -17,9 +17,16 @@ try {
 // Verificar se deve usar Supabase ou PostgreSQL direto
 const useSupabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+console.log('🔍 DEBUG: Verificando configuração do banco...');
+console.log('📋 DEBUG: SUPABASE_URL presente:', !!process.env.SUPABASE_URL);
+console.log('📋 DEBUG: SUPABASE_SERVICE_ROLE_KEY presente:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+console.log('📋 DEBUG: useSupabase =', useSupabase);
+
 if (useSupabase) {
+  console.log('🔗 DEBUG: Usando Supabase como backend de dados');
   logger.info('🔗 Usando Supabase como backend de dados');
 } else {
+  console.log('🔗 DEBUG: Usando PostgreSQL direto como backend de dados');
   logger.info('🔗 Usando PostgreSQL direto como backend de dados');
 }
 
@@ -138,11 +145,23 @@ async function executeQuery(query, params = []) {
 /**
  * Função para inserir dados com retry automático
  */
-async function insertWithRetry(table, data, maxRetries = 3) {
+async function insertWithRetry(table, data, maxRetries = 5) {
+  console.log(`🔍 DEBUG: insertWithRetry chamado para tabela "${table}"`);
+  console.log(`📋 DEBUG: useSupabase = ${useSupabase}, supabaseConfig = ${!!supabaseConfig}`);
+  
   if (useSupabase && supabaseConfig) {
+    console.log('🔗 DEBUG: Usando Supabase para inserção');
     // Usar inserção do Supabase
-    return await supabaseConfig.insertWithRetry(table, data, maxRetries);
+    try {
+      const result = await supabaseConfig.insertWithRetry(table, data, maxRetries);
+      console.log(`✅ DEBUG: Supabase insertWithRetry retornou:`, result);
+      return result;
+    } catch (error) {
+      console.error(`❌ DEBUG: Erro no Supabase insertWithRetry:`, error);
+      throw error;
+    }
   } else {
+    console.log('🔗 DEBUG: Usando PostgreSQL direto para inserção');
     // Usar inserção PostgreSQL direto (código original)
     let attempt = 0;
     
@@ -164,11 +183,16 @@ async function insertWithRetry(table, data, maxRetries = 3) {
           RETURNING *
         `;
         
+        console.log(`🔍 DEBUG: Query PostgreSQL:`, query);
+        console.log(`📋 DEBUG: Valores:`, values);
+        
         const result = await executeQuery(query, values);
         
         if (result.length === 0) {
           throw new Error('Nenhum registro inserido');
         }
+        
+        console.log(`✅ DEBUG: PostgreSQL insertWithRetry retornou:`, result[0]);
         
         logger.info(`✅ Inserção em "${table}" realizada com sucesso`, {
           table,
@@ -179,23 +203,66 @@ async function insertWithRetry(table, data, maxRetries = 3) {
         return result[0];
       } catch (error) {
         attempt++;
-        logger.warn(`⚠️ Tentativa ${attempt} de inserção em "${table}" falhou:`, {
+        
+        // Log detalhado do erro
+        console.error(`❌ DEBUG: Tentativa ${attempt} de inserção em "${table}" falhou:`, {
           error: error.message,
+          errorCode: error.code,
           attempt,
           maxRetries,
-          willRetry: attempt < maxRetries
+          willRetry: attempt < maxRetries,
+          table,
+          dataKeys: Object.keys(data)
         });
         
+        logger.warn(`⚠️ Tentativa ${attempt} de inserção em "${table}" falhou:`, {
+          error: error.message,
+          errorCode: error.code,
+          attempt,
+          maxRetries,
+          willRetry: attempt < maxRetries,
+          table,
+          dataKeys: Object.keys(data)
+        });
+        
+        // Se for erro de conexão, aguardar mais tempo
+        if (error.code === 'ECONNRESET' || error.code === 'ENOTFOUND' || error.message.includes('connection')) {
+          const delay = Math.min(2000 * Math.pow(2, attempt), 10000);
+          logger.info(`🔌 Erro de conexão detectado, aguardando ${delay}ms antes da próxima tentativa`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else if (error.code === '23505') { // Unique constraint violation
+          logger.warn(`🔑 Violação de constraint único em "${table}", tentando atualizar...`);
+          try {
+            // Tentar atualizar em vez de inserir
+            const updateResult = await updateWithRetry(table, data, { id: data.id || 'id' }, 2);
+            return updateResult;
+          } catch (updateError) {
+            logger.error(`❌ Falha na atualização após violação de constraint:`, updateError.message);
+          }
+        } else if (error.code === '23503') { // Foreign key violation
+          logger.error(`🔗 Violação de chave estrangeira em "${table}":`, error.message);
+          // Não retry para FK violations
+          throw error;
+        }
+        
         if (attempt >= maxRetries) {
+          console.error(`❌ DEBUG: Falha definitiva na inserção em "${table}" após ${maxRetries} tentativas:`, {
+            error: error.message,
+            errorCode: error.code,
+            data: data
+          });
+          
           logger.error(`❌ Falha definitiva na inserção em "${table}" após ${maxRetries} tentativas:`, {
             error: error.message,
+            errorCode: error.code,
             data: data
           });
           throw error;
         }
         
-        // Aguardar antes de tentar novamente
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        // Aguardar antes de tentar novamente (backoff exponencial)
+        const delay = Math.min(1000 * Math.pow(2, attempt), 8000);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
   }
@@ -204,7 +271,7 @@ async function insertWithRetry(table, data, maxRetries = 3) {
 /**
  * Função para atualizar dados com retry automático
  */
-async function updateWithRetry(table, data, filter, maxRetries = 3) {
+async function updateWithRetry(table, data, filter, maxRetries = 5) {
   if (useSupabase && supabaseConfig) {
     // Usar atualização do Supabase
     return await supabaseConfig.updateWithRetry(table, data, filter, maxRetries);
@@ -251,24 +318,43 @@ async function updateWithRetry(table, data, filter, maxRetries = 3) {
         return result[0];
       } catch (error) {
         attempt++;
+        
+        // Log detalhado do erro
         logger.warn(`⚠️ Tentativa ${attempt} de atualização em "${table}" falhou:`, {
           error: error.message,
+          errorCode: error.code,
           attempt,
           maxRetries,
-          willRetry: attempt < maxRetries
+          willRetry: attempt < maxRetries,
+          table,
+          dataKeys: Object.keys(data),
+          filter
         });
+        
+        // Se for erro de conexão, aguardar mais tempo
+        if (error.code === 'ECONNRESET' || error.code === 'ENOTFOUND' || error.message.includes('connection')) {
+          const delay = Math.min(2000 * Math.pow(2, attempt), 10000);
+          logger.info(`🔌 Erro de conexão detectado, aguardando ${delay}ms antes da próxima tentativa`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else if (error.code === '23503') { // Foreign key violation
+          logger.error(`🔗 Violação de chave estrangeira em "${table}":`, error.message);
+          // Não retry para FK violations
+          throw error;
+        }
         
         if (attempt >= maxRetries) {
           logger.error(`❌ Falha definitiva na atualização em "${table}" após ${maxRetries} tentativas:`, {
             error: error.message,
+            errorCode: error.code,
             data: data,
             filter: filter
           });
           throw error;
         }
         
-        // Aguardar antes de tentar novamente
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        // Aguardar antes de tentar novamente (backoff exponencial)
+        const delay = Math.min(1000 * Math.pow(2, attempt), 8000);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
   }

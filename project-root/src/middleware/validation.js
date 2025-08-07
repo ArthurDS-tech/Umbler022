@@ -11,16 +11,26 @@ const logger = require('../utils/logger');
 
 // Schema para payload do webhook da Umbler
 const webhookPayloadSchema = Joi.object({
+  // Campos obrigatórios da Umbler
+  Type: Joi.string().required(),
+  EventDate: Joi.string().isoDate().required(),
+  EventId: Joi.string().required(),
+  Payload: Joi.object({
+    Type: Joi.string().required(),
+    Content: Joi.object().required()
+  }).required(),
+  
+  // Campos opcionais para compatibilidade
   event: Joi.string().optional(),
   timestamp: Joi.string().isoDate().optional(),
   webhook_id: Joi.string().optional(),
   
-  // Dados da mensagem
+  // Dados da mensagem (formato alternativo)
   message: Joi.object({
-    id: Joi.string().required(),
-    type: Joi.string().valid('text', 'image', 'audio', 'video', 'document', 'location', 'contact', 'sticker').default('text'),
+    id: Joi.string().optional(),
+    type: Joi.string().valid('text', 'image', 'audio', 'video', 'document', 'location', 'contact', 'sticker').optional(),
     content: Joi.string().allow('').optional(),
-    text: Joi.string().allow('').optional(), // Alias para content
+    text: Joi.string().allow('').optional(),
     direction: Joi.string().valid('inbound', 'outbound').optional(),
     timestamp: Joi.string().isoDate().optional(),
     status: Joi.string().valid('sent', 'delivered', 'read', 'failed').optional(),
@@ -45,9 +55,9 @@ const webhookPayloadSchema = Joi.object({
     }).optional()
   }).optional(),
   
-  // Dados do contato
+  // Dados do contato (formato alternativo)
   contact: Joi.object({
-    phone: Joi.string().required(),
+    phone: Joi.string().optional(),
     name: Joi.string().allow('').optional(),
     email: Joi.string().email().allow('').optional(),
     profile_pic: Joi.string().uri().allow('').optional(),
@@ -56,13 +66,13 @@ const webhookPayloadSchema = Joi.object({
     metadata: Joi.object().optional()
   }).optional(),
   
-  // Dados da conversa
+  // Dados da conversa (formato alternativo)
   conversation: Joi.object({
-    id: Joi.string().required(),
+    id: Joi.string().optional(),
     status: Joi.string().valid('open', 'closed', 'pending', 'resolved').optional(),
-    channel: Joi.string().valid('whatsapp', 'telegram', 'email', 'chat').default('whatsapp'),
+    channel: Joi.string().valid('whatsapp', 'telegram', 'email', 'chat').optional(),
     assigned_agent_id: Joi.string().uuid().allow(null).optional(),
-    priority: Joi.string().valid('low', 'normal', 'high', 'urgent').default('normal'),
+    priority: Joi.string().valid('low', 'normal', 'high', 'urgent').optional(),
     created_at: Joi.string().isoDate().optional(),
     updated_at: Joi.string().isoDate().optional()
   }).optional(),
@@ -171,17 +181,48 @@ const dateFilterSchema = Joi.object({
  */
 const validateWebhookPayload = (req, res, next) => {
   try {
+    // Log do payload recebido para debug
+    logger.info('🔍 Validando payload do webhook', {
+      payloadKeys: Object.keys(req.body || {}),
+      payloadSize: JSON.stringify(req.body || {}).length,
+      contentType: req.get('Content-Type'),
+      userAgent: req.get('User-Agent')
+    });
+
+    // Se o body estiver vazio, retornar erro específico
+    if (!req.body || Object.keys(req.body).length === 0) {
+      logger.warn('❌ Webhook recebido com body vazio');
+      return res.status(400).json({
+        success: false,
+        error: 'Body do webhook não pode estar vazio',
+        code: 'EMPTY_WEBHOOK_BODY'
+      });
+    }
+
     const { error, value } = webhookPayloadSchema.validate(req.body, {
       stripUnknown: true,
       convert: true,
-      allowUnknown: true // Permitir campos extras da Umbler
+      allowUnknown: true, // Permitir campos extras da Umbler
+      abortEarly: false // Coletar todos os erros
     });
     
     if (error) {
-      logger.warn('Payload do webhook inválido', {
-        error: error.details,
-        body: req.body
+      logger.warn('⚠️ Payload do webhook com problemas de validação', {
+        error: error.details.map(d => ({
+          field: d.path.join('.'),
+          message: d.message,
+          value: d.context?.value
+        })),
+        bodyKeys: Object.keys(req.body),
+        bodyPreview: JSON.stringify(req.body).substring(0, 500)
       });
+      
+      // Em desenvolvimento, permitir continuar mesmo com erros de validação
+      if (process.env.NODE_ENV === 'development') {
+        logger.info('🔧 Modo desenvolvimento: Continuando apesar dos erros de validação');
+        req.validatedBody = req.body;
+        return next();
+      }
       
       return res.status(400).json({
         success: false,
@@ -196,9 +237,25 @@ const validateWebhookPayload = (req, res, next) => {
     }
     
     req.validatedBody = value;
+    logger.info('✅ Payload do webhook validado com sucesso', {
+      eventType: value.Type || value.event,
+      eventId: value.EventId || value.webhook_id
+    });
     next();
   } catch (validationError) {
-    logger.error('Erro na validação do webhook:', validationError);
+    logger.error('💥 Erro crítico na validação do webhook:', {
+      error: validationError.message,
+      stack: validationError.stack,
+      body: req.body
+    });
+    
+    // Em caso de erro crítico, tentar processar mesmo assim em desenvolvimento
+    if (process.env.NODE_ENV === 'development') {
+      logger.warn('🔧 Modo desenvolvimento: Continuando apesar do erro crítico');
+      req.validatedBody = req.body;
+      return next();
+    }
+    
     return res.status(500).json({
       success: false,
       error: 'Erro interno na validação',

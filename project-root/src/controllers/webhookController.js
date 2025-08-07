@@ -12,145 +12,63 @@ class WebhookController {
    * POST /webhook/umbler
    */
   async receiveUmblerWebhook(req, res) {
-    const startTime = Date.now();
-    let webhookEventId = null;
-    
-    try {
-      const { body, headers, ip } = req;
-      const userAgent = headers['user-agent'] || '';
-      
-      // Log da requisição recebida
-      console.log('\n🎯 ===== WEBHOOK RECEBIDO DA UMBLER =====');
-      console.log('📅 Data/Hora:', new Date().toLocaleString('pt-BR'));
-      console.log('🌐 IP:', ip);
-      console.log('📱 User Agent:', userAgent);
-      console.log('📦 Tamanho do Body:', JSON.stringify(body).length, 'bytes');
-      console.log('🔐 Signature:', headers['x-umbler-signature'] || 'não informado');
-      console.log('📋 Payload Completo:');
-      console.log(JSON.stringify(body, null, 2));
-      console.log('=====================================\n');
-      
-      logger.info('📥 Webhook recebido da Umbler', {
-        ip,
-        userAgent,
-        bodySize: JSON.stringify(body).length,
-        headers: {
-          'content-type': headers['content-type'],
-          'x-umbler-signature': headers['x-umbler-signature'] || 'não informado'
-        }
-      });
-      
-      // Validar se o body não está vazio
-      if (!body || Object.keys(body).length === 0) {
-        logger.warn('❌ Webhook recebido com body vazio');
-        return res.status(400).json({
-          success: false,
-          error: 'Body do webhook não pode estar vazio',
-          code: 'EMPTY_WEBHOOK_BODY'
+    // 1. Responda imediatamente para a Umbler
+    res.status(200).json({ success: true });
+
+    // 2. Processe o webhook em background
+    setImmediate(async function() {
+      let webhookEventId = null;
+      try {
+        const { body, headers, ip } = req;
+        const userAgent = headers['user-agent'] || '';
+
+        console.log('🔍 DEBUG: Iniciando processamento do webhook em background');
+        // Log da requisição recebida
+        logger.info('📥 Webhook recebido da Umbler (background)', {
+          ip,
+          userAgent,
+          bodySize: JSON.stringify(body).length,
+          headers: {
+            'content-type': headers['content-type'],
+            'x-umbler-signature': headers['x-umbler-signature'] || 'não informado'
+          }
         });
-      }
-      
-      // Validar assinatura do webhook (se configurada)
-      const signature = headers['x-umbler-signature'];
-      if (process.env.WEBHOOK_SECRET) {
-        const isValidSignature = validateWebhookSignature(
-          req.rawBody, 
-          signature, 
-          process.env.WEBHOOK_SECRET
-        );
-        
-        if (!isValidSignature) {
-          logger.warn('❌ Assinatura do webhook inválida', { signature, ip });
-          return res.status(401).json({
-            success: false,
-            error: 'Assinatura do webhook inválida',
-            code: 'INVALID_WEBHOOK_SIGNATURE'
-          });
+
+        // Registrar evento do webhook para auditoria
+        webhookEventId = await webhookService.logWebhookEvent({
+          eventType: this._determineEventType(body),
+          eventData: body,
+          sourceIp: ip,
+          userAgent
+        });
+
+        // Processar o webhook de forma assíncrona
+        const result = await webhookService.processWebhook(body, webhookEventId);
+
+        logger.info('✅ Webhook processado com sucesso (background)', {
+          webhookEventId,
+          eventType: result.eventType,
+          contactId: result.contactId,
+          conversationId: result.conversationId,
+          messageId: result.messageId
+        });
+
+        // Marcar evento como processado
+        await webhookService.markEventAsProcessed(webhookEventId);
+      } catch (error) {
+        console.error('❌ DEBUG: Erro ao processar webhook (background):', error);
+        logger.error('❌ Erro ao processar webhook (background)', {
+          error: error.message,
+          stack: error.stack,
+          webhookEventId,
+          body: req.body
+        });
+        // Marcar evento com erro se foi criado
+        if (webhookEventId) {
+          await webhookService.markEventAsError(webhookEventId, error.message);
         }
       }
-      
-      // Registrar evento do webhook para auditoria
-      webhookEventId = await webhookService.logWebhookEvent({
-        eventType: this._determineEventType(body),
-        eventData: body,
-        sourceIp: ip,
-        userAgent
-      });
-      
-      // Processar o webhook de forma assíncrona
-      const result = await webhookService.processWebhook(body, webhookEventId);
-      
-      const processingTime = Date.now() - startTime;
-      
-      // Log de sucesso
-      console.log('\n🎉 ===== WEBHOOK PROCESSADO COM SUCESSO =====');
-      console.log('⏱️ Tempo de processamento:', processingTime + 'ms');
-      console.log('📝 Tipo de evento:', result.eventType);
-      console.log('👤 ID do Contato:', result.contactId);
-      console.log('💬 ID da Conversa:', result.conversationId);
-      console.log('📨 ID da Mensagem:', result.messageId);
-      console.log('💾 Salvo no Supabase com sucesso!');
-      console.log('===========================================\n');
-      
-      logger.info('✅ Webhook processado com sucesso', {
-        webhookEventId,
-        processingTime: `${processingTime}ms`,
-        eventType: result.eventType,
-        contactId: result.contactId,
-        conversationId: result.conversationId,
-        messageId: result.messageId
-      });
-      
-      // Marcar evento como processado
-      await webhookService.markEventAsProcessed(webhookEventId);
-      
-      // Resposta de sucesso para a Umbler
-      return res.status(200).json({
-        success: true,
-        message: 'Webhook processado com sucesso',
-        data: {
-          eventId: webhookEventId,
-          processingTime: `${processingTime}ms`,
-          eventType: result.eventType
-        }
-      });
-      
-    } catch (error) {
-      const processingTime = Date.now() - startTime;
-      
-      logger.error('❌ Erro ao processar webhook', {
-        error: error.message,
-        stack: error.stack,
-        webhookEventId,
-        processingTime: `${processingTime}ms`,
-        body: req.body
-      });
-      
-      // Marcar evento com erro se foi criado
-      if (webhookEventId) {
-        await webhookService.markEventAsError(webhookEventId, error.message);
-      }
-      
-      // Determinar status code baseado no tipo de erro
-      let statusCode = 500;
-      let errorCode = 'WEBHOOK_PROCESSING_ERROR';
-      
-      if (error.message.includes('validation')) {
-        statusCode = 400;
-        errorCode = 'VALIDATION_ERROR';
-      } else if (error.message.includes('database') || error.message.includes('supabase')) {
-        statusCode = 503;
-        errorCode = 'DATABASE_ERROR';
-      }
-      
-      return res.status(statusCode).json({
-        success: false,
-        error: 'Erro interno ao processar webhook',
-        code: errorCode,
-        eventId: webhookEventId,
-        processingTime: `${processingTime}ms`
-      });
-    }
+    }.bind(this)); // Corrige o contexto do this
   }
   
   /**

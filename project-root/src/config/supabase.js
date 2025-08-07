@@ -73,6 +73,7 @@ async function testSupabaseConnection() {
  */
 async function insertWithRetry(table, data, maxRetries = 3) {
   if (!supabase) {
+    console.error('❌ DEBUG: Cliente Supabase não inicializado');
     throw new Error('Cliente Supabase não inicializado');
   }
 
@@ -80,6 +81,9 @@ async function insertWithRetry(table, data, maxRetries = 3) {
   
   while (attempt < maxRetries) {
     try {
+      console.log(`🔍 DEBUG: Supabase insertWithRetry - tentativa ${attempt + 1}/${maxRetries}`);
+      console.log(`📋 DEBUG: Tabela: ${table}, Dados:`, data);
+      
       logger.info(`💾 Tentando inserir em "${table}" (tentativa ${attempt + 1}/${maxRetries})`, {
         table,
         dataKeys: Object.keys(data),
@@ -93,8 +97,11 @@ async function insertWithRetry(table, data, maxRetries = 3) {
         .single();
 
       if (error) {
+        console.error(`❌ DEBUG: Erro do Supabase:`, error);
         throw error;
       }
+      
+      console.log(`✅ DEBUG: Supabase inserção bem-sucedida:`, result);
       
       logger.info(`✅ Inserção em "${table}" realizada com sucesso`, {
         table,
@@ -105,6 +112,16 @@ async function insertWithRetry(table, data, maxRetries = 3) {
       return result;
     } catch (error) {
       attempt++;
+      console.error(`❌ DEBUG: Tentativa ${attempt} de inserção Supabase falhou:`, {
+        error: error.message,
+        errorCode: error.code,
+        attempt,
+        maxRetries,
+        willRetry: attempt < maxRetries,
+        table,
+        dataKeys: Object.keys(data)
+      });
+      
       logger.warn(`⚠️ Tentativa ${attempt} de inserção em "${table}" falhou:`, {
         error: error.message,
         attempt,
@@ -113,6 +130,12 @@ async function insertWithRetry(table, data, maxRetries = 3) {
       });
       
       if (attempt >= maxRetries) {
+        console.error(`❌ DEBUG: Falha definitiva na inserção Supabase após ${maxRetries} tentativas:`, {
+          error: error.message,
+          errorCode: error.code,
+          data: data
+        });
+        
         logger.error(`❌ Falha definitiva na inserção em "${table}" após ${maxRetries} tentativas:`, {
           error: error.message,
           data: data

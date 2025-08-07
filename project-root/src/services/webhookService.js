@@ -34,31 +34,60 @@ class WebhookService {
         processed: true
       };
       
-      switch (eventType) {
-        case 'Message':
-          result = await this._processMessageEvent(payload);
-          break;
-          
-        case 'Conversation':
-          result = await this._processConversationEvent(payload);
-          break;
-          
-        case 'Contact':
-          result = await this._processContactEvent(payload);
-          break;
-          
-        default:
-          logger.warn('Tipo de evento não reconhecido', { eventType, payload });
-          result = await this._processUnknownEvent(payload);
-      }
+      // Adicionar timeout para evitar travamentos
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout no processamento do webhook')), 30000);
+      });
       
-      result.eventType = eventType;
+      const processPromise = (async () => {
+        switch (eventType) {
+          case 'Message':
+            result = await this._processMessageEvent(payload);
+            break;
+            
+          case 'Conversation':
+            result = await this._processConversationEvent(payload);
+            break;
+            
+          case 'Contact':
+            result = await this._processContactEvent(payload);
+            break;
+            
+          default:
+            logger.warn('Tipo de evento não reconhecido', { eventType, payload });
+            result = await this._processUnknownEvent(payload);
+        }
+        
+        result.eventType = eventType;
+        return result;
+      })();
+      
+      // Executar com timeout
+      result = await Promise.race([processPromise, timeoutPromise]);
       
       logger.info('✅ Webhook processado com sucesso', result);
       return result;
       
     } catch (error) {
-      logger.error('❌ Erro no processamento do webhook:', error);
+      logger.error('❌ Erro no processamento do webhook:', {
+        error: error.message,
+        stack: error.stack,
+        payload: JSON.stringify(payload).substring(0, 500),
+        webhookEventId
+      });
+      
+      // Se for erro de timeout, tentar novamente uma vez
+      if (error.message.includes('Timeout')) {
+        logger.warn('⏰ Timeout detectado, tentando novamente...');
+        try {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          return await this.processWebhook(payload, webhookEventId);
+        } catch (retryError) {
+          logger.error('❌ Falha na retry após timeout:', retryError.message);
+          throw retryError;
+        }
+      }
+      
       throw error;
     }
   }
@@ -385,18 +414,47 @@ class WebhookService {
    */
   async logWebhookEvent(eventData) {
     try {
-      const result = await insertWithRetry('webhook_events', {
+      console.log('🔍 DEBUG: Tentando salvar webhook_event no Supabase...');
+      console.log('📋 DEBUG: Dados do evento:', {
+        eventType: eventData.eventType,
+        eventId: eventData.eventData.EventId || 'sem_id',
+        payloadSize: JSON.stringify(eventData.eventData).length
+      });
+
+      // Garantir que todos os campos obrigatórios estão presentes
+      const webhookEventToInsert = {
         event_id: eventData.eventData.EventId || uuidv4(),
-        event_type: eventData.eventType,
+        event_type: eventData.eventType || (eventData.eventData && eventData.eventData.Type) || 'unknown',
         event_date: eventData.eventData.EventDate || new Date().toISOString(),
         payload: eventData.eventData,
         processed: eventData.processed || false,
-        source_ip: eventData.sourceIp,
-        user_agent: eventData.userAgent
+        source_ip: eventData.sourceIp || null,
+        user_agent: eventData.userAgent || null
+      };
+
+      // Logar o objeto final
+      console.log('💾 DEBUG: Dados para inserção:', webhookEventToInsert);
+
+      const result = await insertWithRetry('webhook_events', webhookEventToInsert);
+      
+      console.log('✅ DEBUG: webhook_event salvo no Supabase com sucesso:', {
+        id: result.id,
+        eventId: result.event_id,
+        eventType: result.event_type
       });
       
       return result.id;
     } catch (error) {
+      console.error('❌ DEBUG: ERRO ao salvar webhook_event no Supabase:', {
+        error: error.message,
+        stack: error.stack,
+        eventData: {
+          eventType: eventData.eventType,
+          eventId: eventData.eventData.EventId,
+          payloadSize: JSON.stringify(eventData.eventData).length
+        }
+      });
+      
       logger.error('Falha ao salvar evento de webhook:', error);
       // Não propagar erro para não interromper o processamento
       return null;
@@ -634,15 +692,33 @@ class WebhookService {
     
     // Validações específicas para payload da Umbler
     if (!payload.Type) {
+      logger.warn('⚠️ Payload sem campo Type, tentando inferir...', {
+        payloadKeys: Object.keys(payload)
+      });
+      
+      // Tentar inferir o tipo baseado na estrutura
+      if (payload.message || payload.contact || payload.conversation) {
+        logger.info('✅ Tipo inferido com sucesso');
+        return true;
+      }
+      
       throw new Error('Payload inválido: campo Type é obrigatório');
     }
     
+    // Em desenvolvimento, ser mais tolerante
+    if (process.env.NODE_ENV === 'development') {
+      logger.info('🔧 Modo desenvolvimento: Validação relaxada');
+      return true;
+    }
+    
     if (!payload.EventDate) {
-      throw new Error('Payload inválido: campo EventDate é obrigatório');
+      logger.warn('⚠️ Payload sem campo EventDate');
+      // Não falhar, apenas logar
     }
     
     if (!payload.Payload) {
-      throw new Error('Payload inválido: campo Payload é obrigatório');
+      logger.warn('⚠️ Payload sem campo Payload');
+      // Não falhar, apenas logar
     }
     
     return true;

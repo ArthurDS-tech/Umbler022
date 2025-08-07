@@ -98,18 +98,44 @@ const globalLimiter = rateLimit({
   skip: (req) => {
     // Pular rate limit para webhooks da Umbler em desenvolvimento
     return environment.nodeEnv === 'development' && req.path.startsWith('/webhook');
+  },
+  // Adicionar retry-after header
+  handler: (req, res) => {
+    res.set('Retry-After', '60');
+    res.status(429).json({
+      success: false,
+      error: 'Muitas requisições de um mesmo IP, tente novamente em alguns minutos.',
+      code: 'RATE_LIMIT_EXCEEDED',
+      retryAfter: 60
+    });
   }
 });
 
 app.use(globalLimiter);
 
-// Rate limiting específico para webhooks
+// Rate limiting específico para webhooks - mais permissivo
 const webhookLimiter = rateLimit({
-  windowMs: environment.rateLimit.windowMs,
-  max: environment.rateLimit.webhookMax,
+  windowMs: 60 * 1000, // 1 minuto
+  max: environment.rateLimit.webhookMax || 200, // Aumentado de 100 para 200
   message: {
     error: 'Limite de webhooks excedido',
     code: 'WEBHOOK_RATE_LIMIT_EXCEEDED'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    // Em desenvolvimento, permitir mais requisições
+    return environment.isDevelopment();
+  },
+  // Adicionar retry-after header para webhooks
+  handler: (req, res) => {
+    res.set('Retry-After', '30');
+    res.status(429).json({
+      success: false,
+      error: 'Limite de webhooks excedido, tente novamente em 30 segundos',
+      code: 'WEBHOOK_RATE_LIMIT_EXCEEDED',
+      retryAfter: 30
+    });
   }
 });
 
