@@ -38,6 +38,13 @@ class ContactService {
     try {
       const formattedData = this._formatContactData(contactData);
       
+      console.log('🔍 DEBUG: Tentando criar contato no Supabase...');
+      console.log('📋 DEBUG: Dados do contato:', {
+        phone: formattedData.phone,
+        name: formattedData.name,
+        email: formattedData.email
+      });
+      
       logger.info('Criando novo contato', { phone: formattedData.phone });
       
       const contactToInsert = {
@@ -53,7 +60,15 @@ class ContactService {
         last_interaction: new Date().toISOString()
       };
       
+      console.log('💾 DEBUG: Dados para inserção no Supabase:', contactToInsert);
+      
       const result = await insertWithRetry('contacts', contactToInsert);
+      
+      console.log('✅ DEBUG: Contato criado no Supabase com sucesso:', {
+        id: result.id,
+        phone: result.phone,
+        name: result.name
+      });
       
       logger.info('✅ Contato criado com sucesso', { 
         id: result.id, 
@@ -62,6 +77,16 @@ class ContactService {
       
       return result;
     } catch (error) {
+      console.error('❌ DEBUG: ERRO ao criar contato no Supabase:', {
+        error: error.message,
+        stack: error.stack,
+        contactData: {
+          phone: contactData.phone,
+          name: contactData.name,
+          email: contactData.email
+        }
+      });
+      
       logger.error('Erro ao criar contato:', error);
       throw error;
     }

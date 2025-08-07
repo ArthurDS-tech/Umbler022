@@ -414,7 +414,14 @@ class WebhookService {
    */
   async logWebhookEvent(eventData) {
     try {
-      const result = await insertWithRetry('webhook_events', {
+      console.log('🔍 DEBUG: Tentando salvar webhook_event no Supabase...');
+      console.log('📋 DEBUG: Dados do evento:', {
+        eventType: eventData.eventType,
+        eventId: eventData.eventData.EventId || 'sem_id',
+        payloadSize: JSON.stringify(eventData.eventData).length
+      });
+
+      const webhookEventToInsert = {
         event_id: eventData.eventData.EventId || uuidv4(),
         event_type: eventData.eventType,
         event_date: eventData.eventData.EventDate || new Date().toISOString(),
@@ -422,10 +429,30 @@ class WebhookService {
         processed: eventData.processed || false,
         source_ip: eventData.sourceIp,
         user_agent: eventData.userAgent
+      };
+
+      console.log('💾 DEBUG: Dados para inserção:', webhookEventToInsert);
+
+      const result = await insertWithRetry('webhook_events', webhookEventToInsert);
+      
+      console.log('✅ DEBUG: webhook_event salvo no Supabase com sucesso:', {
+        id: result.id,
+        eventId: result.event_id,
+        eventType: result.event_type
       });
       
       return result.id;
     } catch (error) {
+      console.error('❌ DEBUG: ERRO ao salvar webhook_event no Supabase:', {
+        error: error.message,
+        stack: error.stack,
+        eventData: {
+          eventType: eventData.eventType,
+          eventId: eventData.eventData.EventId,
+          payloadSize: JSON.stringify(eventData.eventData).length
+        }
+      });
+      
       logger.error('Falha ao salvar evento de webhook:', error);
       // Não propagar erro para não interromper o processamento
       return null;
