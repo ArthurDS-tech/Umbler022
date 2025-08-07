@@ -47,11 +47,12 @@ class ContactService {
       
       logger.info('Criando novo contato', { phone: formattedData.phone });
       
+      // Garantir que todos os campos obrigatórios estão presentes
       const contactToInsert = {
         phone: formattedData.phone,
-        name: formattedData.name,
-        email: formattedData.email,
-        profile_pic_url: formattedData.profilePicUrl,
+        name: formattedData.name || null,
+        email: formattedData.email || null,
+        profile_pic_url: formattedData.profilePicUrl || null,
         status: formattedData.status || 'active',
         tags: formattedData.tags || [],
         metadata: formattedData.metadata || {},

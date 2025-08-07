@@ -16,12 +16,13 @@ class WebhookController {
     res.status(200).json({ success: true });
 
     // 2. Processe o webhook em background
-    setImmediate(async () => {
+    setImmediate(async function() {
       let webhookEventId = null;
       try {
         const { body, headers, ip } = req;
         const userAgent = headers['user-agent'] || '';
 
+        console.log('🔍 DEBUG: Iniciando processamento do webhook em background');
         // Log da requisição recebida
         logger.info('📥 Webhook recebido da Umbler (background)', {
           ip,
@@ -55,6 +56,7 @@ class WebhookController {
         // Marcar evento como processado
         await webhookService.markEventAsProcessed(webhookEventId);
       } catch (error) {
+        console.error('❌ DEBUG: Erro ao processar webhook (background):', error);
         logger.error('❌ Erro ao processar webhook (background)', {
           error: error.message,
           stack: error.stack,
@@ -66,7 +68,7 @@ class WebhookController {
           await webhookService.markEventAsError(webhookEventId, error.message);
         }
       }
-    });
+    }.bind(this)); // Corrige o contexto do this
   }
   
   /**

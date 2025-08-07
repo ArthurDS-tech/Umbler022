@@ -421,16 +421,18 @@ class WebhookService {
         payloadSize: JSON.stringify(eventData.eventData).length
       });
 
+      // Garantir que todos os campos obrigatórios estão presentes
       const webhookEventToInsert = {
         event_id: eventData.eventData.EventId || uuidv4(),
-        event_type: eventData.eventType,
+        event_type: eventData.eventType || (eventData.eventData && eventData.eventData.Type) || 'unknown',
         event_date: eventData.eventData.EventDate || new Date().toISOString(),
         payload: eventData.eventData,
         processed: eventData.processed || false,
-        source_ip: eventData.sourceIp,
-        user_agent: eventData.userAgent
+        source_ip: eventData.sourceIp || null,
+        user_agent: eventData.userAgent || null
       };
 
+      // Logar o objeto final
       console.log('💾 DEBUG: Dados para inserção:', webhookEventToInsert);
 
       const result = await insertWithRetry('webhook_events', webhookEventToInsert);
