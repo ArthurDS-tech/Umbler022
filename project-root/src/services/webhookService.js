@@ -2,6 +2,7 @@ const { executeQuery, insertWithRetry, updateWithRetry, findWithCache } = requir
 const contactService = require('./contactService');
 const messageService = require('./messageService');
 const conversationService = require('./conversationService');
+const responseTimeService = require('./responseTimeService');
 const logger = require('../utils/logger');
 const { v4: uuidv4 } = require('uuid');
 
@@ -159,6 +160,14 @@ class WebhookService {
       // 7. Processar tags do contato
       if (Contact.Tags && Contact.Tags.length > 0) {
         await this._processContactTags(contactResult.id, Contact.Tags);
+      }
+
+      // 8. Calcular tempo de resposta do cliente
+      try {
+        await responseTimeService.processMessageForResponseTime(payload);
+      } catch (error) {
+        logger.warn('Erro ao calcular tempo de resposta:', error);
+        // Não interromper o processamento por causa disso
       }
       
       return {

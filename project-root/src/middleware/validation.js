@@ -9,7 +9,18 @@ const logger = require('../utils/logger');
 // SCHEMAS DE VALIDAÇÃO
 // =============================================
 
-// Schema para payload do webhook da Umbler
+// Schema para payload do webhook da Umbler (Novo formato)
+const umblerWebhookSchema = Joi.object({
+  Type: Joi.string().required(),
+  EventDate: Joi.string().isoDate().required(),
+  EventId: Joi.string().required(),
+  Payload: Joi.object({
+    Type: Joi.string().required(),
+    Content: Joi.object().required()
+  }).required()
+});
+
+// Schema para payload do webhook da Umbler (Formato legado - manter compatibilidade)
 const webhookPayloadSchema = Joi.object({
   event: Joi.string().optional(),
   timestamp: Joi.string().isoDate().optional(),
