@@ -411,3 +411,41 @@ module.exports = {
   healthCheck,
   initializeSupabase
 };
+
+// Fallback para quando Supabase não estiver configurado
+if (!supabaseUrl || !supabaseKey) {
+  logger.warn('⚠️ Supabase não configurado, usando PostgreSQL direto');
+  module.exports = {
+    supabase: null,
+    testConnection: async () => {
+      logger.warn('⚠️ Teste de conexão Supabase não disponível');
+      return false;
+    },
+    executeQuery: async () => {
+      throw new Error('Supabase não configurado');
+    },
+    insertWithRetry: async () => {
+      throw new Error('Supabase não configurado');
+    },
+    updateWithRetry: async () => {
+      throw new Error('Supabase não configurado');
+    },
+    findWithCache: async () => {
+      throw new Error('Supabase não configurado');
+    },
+    executeTransaction: async () => {
+      throw new Error('Supabase não configurado');
+    },
+    healthCheck: async () => {
+      return {
+        status: 'unhealthy',
+        error: 'Supabase não configurado',
+        timestamp: new Date().toISOString()
+      };
+    },
+    initializeSupabase: async () => {
+      logger.warn('⚠️ Supabase não configurado');
+      return false;
+    }
+  };
+}

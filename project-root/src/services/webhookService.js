@@ -3,6 +3,7 @@ const contactService = require('./contactService');
 const messageService = require('./messageService');
 const conversationService = require('./conversationService');
 const agentResponseTimeService = require('./agentResponseTimeService');
+const mensagensWebhookService = require('./mensagensWebhookService');
 const logger = require('../utils/logger');
 const { v4: uuidv4 } = require('uuid');
 
@@ -15,6 +16,17 @@ class WebhookService {
    * Processar webhook recebido da Umbler
    */
   async processWebhook(payload, webhookEventId = null) {
+    // Verificar se Supabase está configurado
+    const { supabase } = require('../config/supabase');
+    if (!supabase) {
+      logger.warn('⚠️ Supabase não configurado, processando apenas localmente');
+      return {
+        eventType: 'unknown',
+        processed: false,
+        error: 'Supabase não configurado'
+      };
+    }
+
     try {
       logger.info('🔄 Iniciando processamento do webhook', { 
         eventType: payload.Type,
@@ -167,6 +179,14 @@ class WebhookService {
         await agentResponseTimeService.processMessageForAgentResponseTime(payload);
       } catch (error) {
         logger.warn('Erro ao calcular tempo de resposta do atendente:', error);
+        // Não interromper o processamento por causa disso
+      }
+      
+      // 9. Processar mensagem para tabelas customizadas (mensagens_webhook e respostas)
+      try {
+        await mensagensWebhookService.processarMensagemWebhook(payload);
+      } catch (error) {
+        logger.warn('Erro ao processar mensagem para tabelas customizadas:', error);
         // Não interromper o processamento por causa disso
       }
       

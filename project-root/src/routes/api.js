@@ -3,6 +3,9 @@ const router = express.Router();
 const { supabaseAdmin } = require('../config/database');
 const logger = require('../utils/logger');
 
+// Importar rotas de mensagens webhook
+const mensagensWebhookRoutes = require('./mensagensWebhook');
+
 // Modo mock para desenvolvimento
 const isMockMode = process.env.NODE_ENV === 'development' && !process.env.SUPABASE_URL?.includes('lmybrxyvnhowddcllloh');
 
@@ -478,5 +481,12 @@ async function calculateAverageResponseTime() {
         return 0;
     }
 }
+
+// =============================================
+// ROTAS DE MENSAGENS WEBHOOK
+// =============================================
+
+// Usar as rotas de mensagens webhook
+router.use('/mensagens-webhook', mensagensWebhookRoutes);
 
 module.exports = router;
