@@ -1,0 +1,31 @@
+{
+    "watch": [
+      "src/"
+    ],
+    "ext": "js,json",
+    "ignore": [
+      "src/**/*.test.js",
+      "src/**/*.spec.js",
+      "logs/",
+      "node_modules/",
+      "coverage/",
+      "dist/",
+      "build/"
+    ],
+    "exec": "node src/app.js",
+    "env": {
+      "NODE_ENV": "development"
+    },
+    "delay": "1000",
+    "verbose": true,
+    "colours": true,
+    "events": {
+      "restart": "echo '🔄 Reiniciando servidor webhook Umbler...'",
+      "crash": "echo '💥 Servidor crashou! Reiniciando em 5 segundos...'",
+      "start": "echo '🚀 Servidor webhook Umbler iniciado com sucesso!'"
+    },
+    "restartable": "rs",
+    "legacyWatch": false,
+    "pollingInterval": 100,
+    "signal": "SIGTERM"
+  }
