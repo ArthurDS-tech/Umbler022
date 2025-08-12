@@ -5,16 +5,12 @@ const nextConfig = {
   images: {
     domains: ['localhost', 'api.umbler-dashboard.com'],
   },
-  env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000',
-    NEXT_PUBLIC_APP_NAME: 'Umbler Dashboard',
-    NEXT_PUBLIC_APP_VERSION: '1.0.0',
-  },
   async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
     return [
       {
         source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL}/api/:path*`,
+        destination: `${apiUrl}/api/:path*`,
       },
     ];
   },

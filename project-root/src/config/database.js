@@ -14,14 +14,15 @@ try {
  * Configuração e inicialização do cliente PostgreSQL (Neon) ou Supabase
  */
 
-// Verificar se deve usar Supabase ou PostgreSQL direto
-const useSupabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Forçar uso do PostgreSQL direto
+const useSupabase = false; // Desabilitado - usando PostgreSQL direto
+const forcePostgreSQL = process.env.USE_POSTGRESQL === 'true';
 
-// Expor um cliente administrativo quando Supabase estiver habilitado
-const supabaseAdmin = useSupabase && supabaseConfig ? supabaseConfig.supabase : null;
+// Supabase desabilitado
+const supabaseAdmin = null;
 
-if (useSupabase) {
-  logger.info('🔗 Usando Supabase como backend de dados');
+if (forcePostgreSQL) {
+  logger.info('🔗 Usando PostgreSQL direto como backend de dados (configuração forçada)');
 } else {
   logger.info('🔗 Usando PostgreSQL direto como backend de dados');
 }

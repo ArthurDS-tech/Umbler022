@@ -1,13 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const { supabaseAdmin } = require('../config/database');
+const { supabaseAdmin, executeQuery, findWithCache, insertWithRetry, updateWithRetry } = require('../config/database');
 const logger = require('../utils/logger');
 
 // Importar rotas de mensagens webhook
 const mensagensWebhookRoutes = require('./mensagensWebhook');
 
-// Modo mock para desenvolvimento
-const isMockMode = process.env.NODE_ENV === 'development' && !process.env.SUPABASE_URL?.includes('lmybrxyvnhowddcllloh');
+// Forçar uso do PostgreSQL - sem modo mock
+const isMockMode = false; // Desabilitado - usando PostgreSQL direto
+const usePostgreSQL = process.env.USE_POSTGRESQL === 'true';
 
 // =============================================
 // ROTAS DE ESTATÍSTICAS
@@ -129,169 +130,112 @@ router.get('/messages/realtime', async (req, res) => {
 router.get('/contacts', async (req, res) => {
     try {
         const { page = 1, limit = 20, search = '', tag = '' } = req.query;
-
-        if (isMockMode) {
-            // Dados mock para contatos
-            const mockContacts = [
-                {
-                    id: '1',
-                    name: 'João Silva',
-                    phone: '+5511999999999',
-                    email: 'joao@email.com',
-                    tags: ['✨ REPECON FIAT', '🐨 LOJISTA'],
-                    status: 'active',
-                    last_interaction: new Date().toISOString(),
-                    last_message: {
-                        content: 'Olá! Gostaria de informações sobre o carro.',
-                        created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString()
-                    },
-                    active_conversations: 1
-                },
-                {
-                    id: '2',
-                    name: 'Maria Santos',
-                    phone: '+5511888888888',
-                    email: 'maria@email.com',
-                    tags: ['✨ AUTOMEGA', '💗 Troca'],
-                    status: 'active',
-                    last_interaction: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-                    last_message: {
-                        content: 'Estou interessada na troca do meu carro.',
-                        created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-                    },
-                    active_conversations: 1
-                },
-                {
-                    id: '3',
-                    name: 'Pedro Costa',
-                    phone: '+5521777777777',
-                    email: 'pedro@email.com',
-                    tags: ['🐨 DICAS', '💛 Zero'],
-                    status: 'active',
-                    last_interaction: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-                    last_message: {
-                        content: 'Preciso de dicas sobre financiamento.',
-                        created_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
-                    },
-                    active_conversations: 0
-                },
-                {
-                    id: '4',
-                    name: 'Ana Oliveira',
-                    phone: '+5531666666666',
-                    email: 'ana@email.com',
-                    tags: ['🥳 PV', '💚 seminovo'],
-                    status: 'active',
-                    last_interaction: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-                    last_message: {
-                        content: 'Tem seminovos disponíveis?',
-                        created_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString()
-                    },
-                    active_conversations: 1
-                },
-                {
-                    id: '5',
-                    name: 'Carlos Lima',
-                    phone: '+5541555555555',
-                    email: 'carlos@email.com',
-                    tags: ['🐨 PIX VISTORIA', '🤎 zero fora'],
-                    status: 'active',
-                    last_interaction: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-                    last_message: {
-                        content: 'Quero fazer a vistoria via PIX.',
-                        created_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
-                    },
-                    active_conversations: 0
-                }
-            ];
-
-            // Aplicar filtros mock
-            let filteredContacts = mockContacts;
-            
-            if (search) {
-                filteredContacts = mockContacts.filter(contact => 
-                    contact.name.toLowerCase().includes(search.toLowerCase()) ||
-                    contact.phone.includes(search)
-                );
-            }
-
-            if (tag) {
-                filteredContacts = filteredContacts.filter(contact => 
-                    contact.tags.includes(tag)
-                );
-            }
-
-            // Aplicar paginação mock
-            const offset = (page - 1) * limit;
-            const paginatedContacts = filteredContacts.slice(offset, offset + limit);
-
-            return res.json({
-                contacts: paginatedContacts,
-                total: filteredContacts.length,
-                page: parseInt(page),
-                limit: parseInt(limit),
-                totalPages: Math.ceil(filteredContacts.length / limit)
-            });
-        }
-
         const offset = (page - 1) * limit;
 
-        let query = supabaseAdmin
-            .from('contacts')
-            .select(`
-                *,
-                conversations!inner(
-                    id,
-                    status,
-                    last_message_at
-                ),
-                messages!inner(
-                    id,
-                    content,
-                    created_at,
-                    direction
-                )
-            `)
-            .order('last_interaction', { ascending: false });
+        logger.info('Buscando contatos no PostgreSQL', { page, limit, search, tag });
+
+        // Query base para contatos com último mensagem
+        let query = `
+            SELECT 
+                c.id,
+                c.external_id,
+                c.name,
+                c.phone,
+                c.email,
+                c.tags,
+                c.status,
+                c.last_interaction,
+                c.metadata,
+                c.created_at,
+                ch.id as chat_id,
+                ch.total_messages,
+                ch.total_unread,
+                m.content as last_message_content,
+                m.created_at as last_message_created_at,
+                m.message_type as last_message_type
+            FROM contacts c
+            LEFT JOIN chats ch ON ch.contact_id = c.id
+            LEFT JOIN messages m ON m.id = (
+                SELECT m2.id FROM messages m2 
+                WHERE m2.contact_id = c.id 
+                ORDER BY m2.event_at_utc DESC 
+                LIMIT 1
+            )
+        `;
+        
+        const params = [];
+        const whereConditions = [];
 
         // Aplicar filtros
         if (search) {
-            query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%`);
+            whereConditions.push(`(c.name ILIKE $${params.length + 1} OR c.phone ILIKE $${params.length + 1})`);
+            params.push(`%${search}%`);
         }
 
         if (tag) {
-            query = query.contains('tags', [tag]);
+            whereConditions.push(`$${params.length + 1} = ANY(c.tags)`);
+            params.push(tag);
         }
 
-        // Aplicar paginação
-        query = query.range(offset, offset + limit - 1);
+        if (whereConditions.length > 0) {
+            query += ` WHERE ${whereConditions.join(' AND ')}`;
+        }
 
-        const { data: contacts, error, count } = await query;
+        query += ` ORDER BY c.last_interaction DESC`;
+        query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+        params.push(parseInt(limit), offset);
 
-        if (error) throw error;
+        const contacts = await executeQuery(query, params);
+
+        // Query para contar total de registros
+        let countQuery = `SELECT COUNT(DISTINCT c.id) as total FROM contacts c`;
+        const countParams = [];
+        
+        if (whereConditions.length > 0) {
+            countQuery += ` WHERE ${whereConditions.join(' AND ')}`;
+            // Recriar parâmetros para count query
+            if (search) {
+                countParams.push(`%${search}%`);
+            }
+            if (tag) {
+                countParams.push(tag);
+            }
+        }
+
+        const countResult = await executeQuery(countQuery, countParams);
+        const total = parseInt(countResult[0]?.total || 0);
 
         // Processar dados dos contatos
         const processedContacts = contacts.map(contact => ({
-            id: contact.id,
+            id: contact.id.toString(),
             name: contact.name,
             phone: contact.phone,
             email: contact.email,
             tags: contact.tags || [],
             status: contact.status,
             last_interaction: contact.last_interaction,
-            last_message: contact.messages?.[0] || null,
-            active_conversations: contact.conversations?.filter(c => c.status === 'open').length || 0
+            last_message: contact.last_message_content ? {
+                content: contact.last_message_content,
+                created_at: contact.last_message_created_at,
+                type: contact.last_message_type
+            } : null,
+            active_conversations: contact.total_unread || 0
         }));
+
+        logger.info('Contatos encontrados no PostgreSQL', { 
+            total: processedContacts.length, 
+            totalRecords: total 
+        });
 
         res.json({
             contacts: processedContacts,
-            total: count || contacts.length,
+            total: total,
             page: parseInt(page),
             limit: parseInt(limit),
-            totalPages: Math.ceil((count || contacts.length) / limit)
+            totalPages: Math.ceil(total / limit)
         });
     } catch (error) {
-        logger.error('Erro ao buscar contatos:', error);
+        logger.error('Erro ao buscar contatos no PostgreSQL:', error);
         res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });
@@ -301,78 +245,74 @@ router.get('/contacts/:id/messages', async (req, res) => {
     try {
         const { id } = req.params;
 
-        if (isMockMode) {
-            // Dados mock para mensagens
-            const mockContact = {
-                id: id,
-                name: 'João Silva',
-                phone: '+5511999999999',
-                email: 'joao@email.com'
-            };
-
-            const mockMessages = [
-                {
-                    id: '1',
-                    content: 'Olá! Gostaria de informações sobre o carro.',
-                    created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-                    direction: 'inbound'
-                },
-                {
-                    id: '2',
-                    content: 'Olá! Claro, posso te ajudar. Qual modelo você tem interesse?',
-                    created_at: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-                    direction: 'outbound'
-                },
-                {
-                    id: '3',
-                    content: 'Estou interessado no Fiat Argo. Tem disponível?',
-                    created_at: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
-                    direction: 'inbound'
-                },
-                {
-                    id: '4',
-                    content: 'Sim! Temos o Argo disponível. Posso te enviar as especificações?',
-                    created_at: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-                    direction: 'outbound'
-                },
-                {
-                    id: '5',
-                    content: 'Perfeito! Envie por favor.',
-                    created_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-                    direction: 'inbound'
-                }
-            ];
-
-            return res.json({
-                contact: mockContact,
-                messages: mockMessages
-            });
-        }
+        logger.info('Buscando mensagens do contato no PostgreSQL', { contactId: id });
 
         // Buscar contato
-        const { data: contact, error: contactError } = await supabaseAdmin
-            .from('contacts')
-            .select('*')
-            .eq('id', id)
-            .single();
-
-        if (contactError) throw contactError;
+        const contactQuery = `
+            SELECT id, external_id, name, phone, email, tags, status, metadata, last_interaction
+            FROM contacts 
+            WHERE id = $1
+        `;
+        const contactResult = await executeQuery(contactQuery, [parseInt(id)]);
+        
+        if (contactResult.length === 0) {
+            return res.status(404).json({ error: 'Contato não encontrado' });
+        }
+        
+        const contact = contactResult[0];
 
         // Buscar mensagens do contato
-        const { data: messages, error: messagesError } = await supabaseAdmin
-            .from('messages')
-            .select('*')
-            .eq('contact_id', id)
-            .order('created_at', { ascending: true });
+        const messagesQuery = `
+            SELECT 
+                id,
+                external_id,
+                content,
+                message_type,
+                direction,
+                file_url,
+                file_type,
+                file_size,
+                location_data,
+                event_at_utc,
+                created_at
+            FROM messages 
+            WHERE contact_id = $1 
+            ORDER BY event_at_utc ASC
+        `;
+        const messages = await executeQuery(messagesQuery, [parseInt(id)]);
 
-        if (messagesError) throw messagesError;
+        // Processar dados das mensagens
+        const processedMessages = messages.map(message => ({
+            id: message.id.toString(),
+            content: message.content,
+            message_type: message.message_type,
+            direction: message.direction,
+            file_url: message.file_url,
+            file_type: message.file_type,
+            file_size: message.file_size,
+            location_data: message.location_data,
+            created_at: message.event_at_utc || message.created_at
+        }));
+
+        logger.info('Mensagens encontradas no PostgreSQL', { 
+            contactId: id, 
+            totalMessages: processedMessages.length 
+        });
 
         res.json({
-            contact,
-            messages: messages || []
+            contact: {
+                id: contact.id.toString(),
+                name: contact.name,
+                phone: contact.phone,
+                email: contact.email,
+                tags: contact.tags || [],
+                status: contact.status,
+                last_interaction: contact.last_interaction
+            },
+            messages: processedMessages
         });
     } catch (error) {
-        logger.error('Erro ao buscar mensagens do contato:', error);
+        logger.error('Erro ao buscar mensagens do contato no PostgreSQL:', error);
         res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });

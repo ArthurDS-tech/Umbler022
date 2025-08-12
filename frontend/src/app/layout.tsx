@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { Toaster } from 'react-hot-toast';
 import '@/styles/globals.css';
@@ -10,7 +10,11 @@ export const metadata: Metadata = {
   description: 'Dashboard completo para gerenciamento de WhatsApp com Umbler',
   keywords: 'whatsapp, dashboard, umbler, mensagens, contatos, conversas',
   authors: [{ name: 'Umbler Dashboard Team' }],
-  viewport: 'width=device-width, initial-scale=1',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
   themeColor: '#3b82f6',
 };
 
@@ -23,7 +27,6 @@ export default function RootLayout({
     <html lang="pt-BR">
       <head>
         <link rel="icon" href="/favicon.ico" />
-        <meta name="theme-color" content="#3b82f6" />
       </head>
       <body className={inter.className}>
         {children}

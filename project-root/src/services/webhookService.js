@@ -16,16 +16,11 @@ class WebhookService {
    * Processar webhook recebido da Umbler
    */
   async processWebhook(payload, webhookEventId = null) {
-    // Verificar se Supabase está configurado
-    const { supabase } = require('../config/supabase');
-    if (!supabase) {
-      logger.warn('⚠️ Supabase não configurado, processando apenas localmente');
-      return {
-        eventType: 'unknown',
-        processed: false,
-        error: 'Supabase não configurado'
-      };
-    }
+    // Usando PostgreSQL diretamente
+    logger.info('🔄 Processando webhook no PostgreSQL', { 
+      eventType: payload.Type,
+      webhookEventId 
+    });
 
     try {
       logger.info('🔄 Iniciando processamento do webhook', { 

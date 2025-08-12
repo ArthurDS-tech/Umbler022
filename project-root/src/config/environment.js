@@ -32,7 +32,11 @@ const environment = {
   
   // Configurações de CORS
   cors: {
-    origin: process.env.CORS_ORIGIN || ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8080', 'http://127.0.0.1:8080'],
+    origin: process.env.CORS_ORIGIN ? 
+      (process.env.CORS_ORIGIN.includes(',') ? 
+        process.env.CORS_ORIGIN.split(',').map(o => o.trim()) : 
+        process.env.CORS_ORIGIN) :
+      ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8080', 'http://127.0.0.1:8080'],
     credentials: process.env.CORS_CREDENTIALS === 'true'
   },
   
@@ -181,7 +185,6 @@ if (environment.isDevelopment()) {
   // Configurações de desenvolvimento
   environment.database.ssl = false;
   environment.logging.level = 'debug';
-  environment.cors.origin = ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8080', 'http://127.0.0.1:8080'];
 } else if (environment.isProduction()) {
   // Configurações de produção
   environment.database.ssl = { rejectUnauthorized: false };

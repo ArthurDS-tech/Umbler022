@@ -17,7 +17,10 @@ export default function ConversationsPage() {
 
   // List contacts (uses backend mock mode if Supabase off)
   const { data: contactsResp } = useSWR(['/api/contacts'], async () => {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/contacts`);
+    const res = await fetch(`/api/contacts`);
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
     return res.json();
   }, { refreshInterval: 5000 });
 
@@ -34,7 +37,10 @@ export default function ConversationsPage() {
   const { data: messagesResp } = useSWR(
     () => (selectedId ? ['/api/contacts', selectedId, 'messages'] : null),
     async () => {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/contacts/${selectedId}/messages`);
+      const res = await fetch(`/api/contacts/${selectedId}/messages`);
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
       return res.json();
     },
     { refreshInterval: 4000 }
