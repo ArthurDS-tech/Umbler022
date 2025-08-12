@@ -7,8 +7,8 @@ const dbConfig = {
   host: 'localhost',
   port: 5432,
   database: 'postgres', // Conecta primeiro ao banco padrão para criar o banco específico
-  user: 'postgres',
-  password: 'password', // Substitua pela sua senha do PostgreSQL
+  user: 'umbler_user',
+  password: 'SUA_SENHA_AQUI', // Substitua pela sua senha do umbler_user
 };
 
 const targetDatabase = 'umbler_webhook_db';
